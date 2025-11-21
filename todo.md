@@ -61,3 +61,12 @@
 - **Autenticação:** Firebase Authentication
 - **Backend:** API JarvisTravel (Gemini + Firebase)
 - **Deploy:** Vercel
+
+
+## Fase 6.1: Otimizações Avançadas de Performance ✅
+- [x] Implementar Spatial Partitioning (Octree) para reduzir cálculos de distância
+- [x] Criar Adaptive Quality Monitor baseado em FPS
+- [x] Implementar GPU Instancing para renderização otimizada
+- [ ] Adicionar Frustum Culling para não renderizar fora da câmera
+- [ ] Implementar Object Pooling para partículas
+- [x] Adicionar Performance Metrics (FPS, memory, draw calls)

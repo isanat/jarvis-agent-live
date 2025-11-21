@@ -2,6 +2,8 @@ import { useEffect, useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useNeuralSphere } from '@/contexts/NeuralSphereContext';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+import { Octree } from '@/lib/Octree';
 
 interface Particle {
   position: THREE.Vector3;
@@ -15,8 +17,10 @@ function NeuralSphereContent() {
   const particlesRef = useRef<Particle[]>([]);
   const linesRef = useRef<THREE.LineSegments>(null);
   const pointsRef = useRef<THREE.Points>(null);
+  const octreeRef = useRef<Octree | null>(null);
   const { camera } = useThree();
   const { isThinking, intensity, particleSpeed } = useNeuralSphere();
+  const metrics = usePerformanceMonitor();
 
   // Detect mobile device
   const [isMobile, setIsMobile] = useState(false);
@@ -29,7 +33,13 @@ function NeuralSphereContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const PARTICLE_COUNT = isMobile ? 600 : 1500;
+  // Adaptive particle count based on quality
+  const PARTICLE_COUNT = useMemo(() => {
+    if (metrics.quality === 'low') return 300;
+    if (metrics.quality === 'medium') return 600;
+    return isMobile ? 600 : 1500;
+  }, [metrics.quality, isMobile]);
+
   const SPHERE_RADIUS = 3;
   const CONNECTION_DISTANCE = isMobile ? 2.0 : 2.5;
 
@@ -65,9 +75,16 @@ function NeuralSphereContent() {
     }
 
     particlesRef.current = particles;
+
+    // Initialize Octree for spatial partitioning
+    const bounds = new THREE.Box3(
+      new THREE.Vector3(-SPHERE_RADIUS - 1, -SPHERE_RADIUS - 1, -SPHERE_RADIUS - 1),
+      new THREE.Vector3(SPHERE_RADIUS + 1, SPHERE_RADIUS + 1, SPHERE_RADIUS + 1)
+    );
+    octreeRef.current = new Octree(bounds, 50, 4);
   }, [PARTICLE_COUNT]);
 
-  // Create particle geometry
+  // Create particle geometry with instancing
   const particleGeometry = useMemo(() => {
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(PARTICLE_COUNT * 3);
@@ -100,13 +117,12 @@ function NeuralSphereContent() {
     });
   }, [isMobile]);
 
-  // Update animation
+  // Update animation with optimizations
   useFrame(() => {
-    if (!groupRef.current) return;
+    if (!groupRef.current || !octreeRef.current) return;
 
     // Update particle positions with thinking animation
     const speedMultiplier = isThinking ? particleSpeed * 2 : particleSpeed;
-    const intensityMultiplier = isThinking ? intensity * 1.5 : intensity;
 
     particlesRef.current.forEach((particle) => {
       // Apply speed multiplier
@@ -139,21 +155,23 @@ function NeuralSphereContent() {
     });
     particleGeometry.attributes.position.needsUpdate = true;
 
-    // Update lines (connections between nearby particles)
+    // Update lines using spatial partitioning (Octree)
     const linePositions: number[] = [];
-    const step = isMobile ? 2 : 1; // Skip connections on mobile for performance
 
-    for (let i = 0; i < PARTICLE_COUNT; i += step) {
-      for (let j = i + 1; j < PARTICLE_COUNT; j += step) {
-        const distance = particlesRef.current[i].position.distanceTo(
-          particlesRef.current[j].position
-        );
+    // Only calculate connections for nearby particles using Octree
+    for (let i = 0; i < Math.min(PARTICLE_COUNT, 200); i++) {
+      const particle = particlesRef.current[i];
+      const neighbors = octreeRef.current.getNeighbors(
+        particle.position,
+        CONNECTION_DISTANCE
+      );
 
-        if (distance < CONNECTION_DISTANCE) {
+      for (const j of neighbors) {
+        if (i < j) {
           linePositions.push(
-            particlesRef.current[i].position.x,
-            particlesRef.current[i].position.y,
-            particlesRef.current[i].position.z,
+            particle.position.x,
+            particle.position.y,
+            particle.position.z,
             particlesRef.current[j].position.x,
             particlesRef.current[j].position.y,
             particlesRef.current[j].position.z
@@ -223,14 +241,25 @@ function NeuralSphereContent() {
 }
 
 export function NeuralSphere() {
+  const metrics = usePerformanceMonitor();
+
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative">
       <Canvas
         camera={{ position: [0, 0, 8], fov: 75 }}
         style={{ width: '100%', height: '100%' }}
       >
         <NeuralSphereContent />
       </Canvas>
+
+      {/* Performance metrics display (development only) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded font-mono">
+          <div>FPS: {metrics.fps}</div>
+          <div>Quality: {metrics.quality}</div>
+          <div>Memory: {metrics.memory}MB</div>
+        </div>
+      )}
     </div>
   );
 }
