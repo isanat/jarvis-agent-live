@@ -1,22 +1,37 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { useNeuralSphere } from '@/contexts/NeuralSphereContext';
 
 interface Particle {
   position: THREE.Vector3;
   velocity: THREE.Vector3;
   color: THREE.Color;
+  originalVelocity: THREE.Vector3;
 }
 
 function NeuralSphereContent() {
   const groupRef = useRef<THREE.Group>(null);
   const particlesRef = useRef<Particle[]>([]);
   const linesRef = useRef<THREE.LineSegments>(null);
+  const pointsRef = useRef<THREE.Points>(null);
   const { camera } = useThree();
+  const { isThinking, intensity, particleSpeed } = useNeuralSphere();
 
-  const PARTICLE_COUNT = 1500;
+  // Detect mobile device
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const PARTICLE_COUNT = isMobile ? 600 : 1500;
   const SPHERE_RADIUS = 3;
-  const CONNECTION_DISTANCE = 2.5;
+  const CONNECTION_DISTANCE = isMobile ? 2.0 : 2.5;
 
   // Initialize particles
   useEffect(() => {
@@ -38,14 +53,19 @@ function NeuralSphereContent() {
       );
 
       // Color gradient: blue to purple
-      const hue = 0.6 + Math.random() * 0.2; // Blue to purple range
+      const hue = 0.6 + Math.random() * 0.2;
       const color = new THREE.Color().setHSL(hue, 0.8, 0.6);
 
-      particles.push({ position, velocity, color });
+      particles.push({
+        position,
+        velocity: velocity.clone(),
+        color,
+        originalVelocity: velocity.clone(),
+      });
     }
 
     particlesRef.current = particles;
-  }, []);
+  }, [PARTICLE_COUNT]);
 
   // Create particle geometry
   const particleGeometry = useMemo(() => {
@@ -67,25 +87,30 @@ function NeuralSphereContent() {
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     return geometry;
-  }, []);
+  }, [PARTICLE_COUNT]);
 
   // Create particle material
   const particleMaterial = useMemo(() => {
     return new THREE.PointsMaterial({
-      size: 0.08,
+      size: isMobile ? 0.06 : 0.08,
       vertexColors: true,
       sizeAttenuation: true,
       transparent: true,
       opacity: 0.8,
     });
-  }, []);
+  }, [isMobile]);
 
   // Update animation
   useFrame(() => {
     if (!groupRef.current) return;
 
-    // Update particle positions
+    // Update particle positions with thinking animation
+    const speedMultiplier = isThinking ? particleSpeed * 2 : particleSpeed;
+    const intensityMultiplier = isThinking ? intensity * 1.5 : intensity;
+
     particlesRef.current.forEach((particle) => {
+      // Apply speed multiplier
+      particle.velocity.copy(particle.originalVelocity).multiplyScalar(speedMultiplier);
       particle.position.add(particle.velocity);
 
       // Bounce particles within sphere
@@ -95,10 +120,11 @@ function NeuralSphereContent() {
         particle.velocity.negate().multiplyScalar(0.95);
       }
 
-      // Add some randomness
-      particle.velocity.x += (Math.random() - 0.5) * 0.001;
-      particle.velocity.y += (Math.random() - 0.5) * 0.001;
-      particle.velocity.z += (Math.random() - 0.5) * 0.001;
+      // Add randomness (more when thinking)
+      const randomFactor = isThinking ? 0.002 : 0.001;
+      particle.velocity.x += (Math.random() - 0.5) * randomFactor;
+      particle.velocity.y += (Math.random() - 0.5) * randomFactor;
+      particle.velocity.z += (Math.random() - 0.5) * randomFactor;
 
       // Damping
       particle.velocity.multiplyScalar(0.99);
@@ -115,8 +141,10 @@ function NeuralSphereContent() {
 
     // Update lines (connections between nearby particles)
     const linePositions: number[] = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      for (let j = i + 1; j < PARTICLE_COUNT; j++) {
+    const step = isMobile ? 2 : 1; // Skip connections on mobile for performance
+
+    for (let i = 0; i < PARTICLE_COUNT; i += step) {
+      for (let j = i + 1; j < PARTICLE_COUNT; j += step) {
         const distance = particlesRef.current[i].position.distanceTo(
           particlesRef.current[j].position
         );
@@ -145,30 +173,51 @@ function NeuralSphereContent() {
     // Rotate sphere
     groupRef.current.rotation.x += 0.0001;
     groupRef.current.rotation.y += 0.0003;
+
+    // Pulsing effect when thinking
+    if (isThinking) {
+      const pulse = Math.sin(Date.now() * 0.005) * 0.1 + 1;
+      groupRef.current.scale.set(pulse, pulse, pulse);
+    } else {
+      groupRef.current.scale.set(1, 1, 1);
+    }
   });
 
   return (
     <group ref={groupRef}>
       {/* Particles */}
-      <points geometry={particleGeometry} material={particleMaterial} />
+      <points ref={pointsRef} geometry={particleGeometry} material={particleMaterial} />
 
       {/* Lines (synaptic connections) */}
       <lineSegments ref={linesRef}>
         <bufferGeometry />
         <lineBasicMaterial
-          color={0x6b7aff}
+          color={isThinking ? 0xff6b9d : 0x6b7aff}
           transparent={true}
-          opacity={0.2}
+          opacity={isThinking ? 0.4 : 0.2}
           linewidth={1}
         />
       </lineSegments>
 
       {/* Ambient light */}
-      <ambientLight intensity={0.5} />
+      <ambientLight intensity={isThinking ? 0.8 : 0.5} />
 
       {/* Point lights for glow effect */}
-      <pointLight position={[5, 5, 5]} intensity={0.8} color={0x6b7aff} />
-      <pointLight position={[-5, -5, -5]} intensity={0.6} color={0xb366ff} />
+      <pointLight
+        position={[5, 5, 5]}
+        intensity={isThinking ? 1.5 : 0.8}
+        color={0x6b7aff}
+      />
+      <pointLight
+        position={[-5, -5, -5]}
+        intensity={isThinking ? 1.2 : 0.6}
+        color={0xb366ff}
+      />
+
+      {/* Additional light when thinking */}
+      {isThinking && (
+        <pointLight position={[0, 0, 0]} intensity={0.5} color={0xff6b9d} />
+      )}
     </group>
   );
 }

@@ -6,6 +6,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { NeuralSphereProvider } from "./contexts/NeuralSphereContext";
 import { PrivateRoute } from "./components/PrivateRoute";
 import Home from "./pages/Home";
 
@@ -38,15 +39,17 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <ThemeProvider
-          defaultTheme="dark"
-          switchable
-        >
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </ThemeProvider>
+        <NeuralSphereProvider>
+          <ThemeProvider
+            defaultTheme="dark"
+            switchable
+          >
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </ThemeProvider>
+        </NeuralSphereProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

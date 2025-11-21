@@ -1,27 +1,56 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MessageCircle, Send, LogOut, Settings } from "lucide-react";
-import { useState } from "react";
+import { MessageCircle, Send, LogOut, Settings, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
+import { useNeuralSphere } from "@/contexts/NeuralSphereContext";
+import { useChatAPI } from "@/hooks/useChatAPI";
 import { NeuralSphere } from "@/components/NeuralSphere";
+import { toast } from "sonner";
 
 /**
  * Home Page - Jarvis Agent Live
- * Main chat interface with animated neural sphere agent
+ * Main chat interface with animated neural sphere agent and API integration
  */
 export default function Home() {
   const { user, logout } = useAuth();
+  const { setIsThinking, setParticleSpeed } = useNeuralSphere();
   const [, setLocation] = useLocation();
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
+  const { messages, loading, sendMessage } = useChatAPI();
   const [inputValue, setInputValue] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSendMessage = () => {
-    if (inputValue.trim()) {
-      setMessages([...messages, { role: "user", content: inputValue }]);
+  // Auto-scroll to latest message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Control sphere animation based on loading state
+  useEffect(() => {
+    setIsThinking(loading);
+    if (loading) {
+      setParticleSpeed(1.5);
+    } else {
+      setParticleSpeed(1);
+    }
+  }, [loading, setIsThinking, setParticleSpeed]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!inputValue.trim()) {
+      toast.error("Please enter a message");
+      return;
+    }
+
+    try {
+      await sendMessage(inputValue);
       setInputValue("");
-      // TODO: Call backend API to get response from Jarvis
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      toast.error("Failed to send message. Please try again.");
     }
   };
 
@@ -62,7 +91,7 @@ export default function Home() {
       </header>
 
       {/* Main Chat Area */}
-      <main className="flex-1 container py-6 flex flex-col gap-6 max-w-4xl mx-auto w-full">
+      <main className="flex-1 container py-6 flex flex-col gap-6 max-w-4xl mx-auto w-full overflow-hidden">
         {/* Neural Sphere Agent Avatar Section */}
         <Card className="shadow-lg overflow-hidden">
           <CardContent className="pt-6 flex flex-col items-center justify-center min-h-[400px] gap-4">
@@ -75,60 +104,88 @@ export default function Home() {
               <p className="text-muted-foreground">Your AI Travel Assistant</p>
             </div>
             {/* Agent status indicator */}
-            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-              <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-pulse" />
-              Neural network active
+            <div className="flex items-center gap-2 text-sm">
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                  <span className="text-orange-600 dark:text-orange-400">Thinking...</span>
+                </>
+              ) : (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-pulse" />
+                  <span className="text-green-600 dark:text-green-400">Neural network active</span>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Chat Messages */}
-        <Card className="shadow-lg flex-1 flex flex-col">
+        <Card className="shadow-lg flex-1 flex flex-col min-h-0">
           <CardHeader>
             <CardTitle>Chat</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col gap-4 overflow-y-auto max-h-[400px]">
+          <CardContent className="flex-1 flex flex-col gap-4 overflow-y-auto">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 <p>Start a conversation with Jarvis</p>
               </div>
             ) : (
-              messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
+              <>
+                {messages.map((msg, idx) => (
                   <div
-                    className={`max-w-xs px-4 py-2 rounded-lg ${
-                      msg.role === "user"
-                        ? "bg-blue-500 text-white rounded-br-none"
-                        : "bg-gray-200 dark:bg-slate-700 text-foreground rounded-bl-none"
-                    }`}
+                    key={idx}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    {msg.content}
+                    <div
+                      className={`max-w-xs px-4 py-2 rounded-lg ${
+                        msg.role === "user"
+                          ? "bg-blue-500 text-white rounded-br-none"
+                          : "bg-gray-200 dark:bg-slate-700 text-foreground rounded-bl-none"
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                {loading && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-200 dark:bg-slate-700 px-4 py-2 rounded-lg rounded-bl-none">
+                      <div className="flex gap-2">
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </>
             )}
           </CardContent>
         </Card>
 
         {/* Input Area */}
-        <div className="flex gap-2">
+        <form onSubmit={handleSendMessage} className="flex gap-2">
           <Input
             placeholder="Type your message..."
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+            disabled={loading}
             className="flex-1"
           />
           <Button
-            onClick={handleSendMessage}
+            type="submit"
+            disabled={loading}
             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
           >
-            <Send className="w-5 h-5" />
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </Button>
-        </div>
+        </form>
       </main>
     </div>
   );
