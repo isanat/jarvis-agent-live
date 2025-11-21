@@ -28,20 +28,20 @@
 - [ ] Otimizar performance (LOD, instancing)
 - [ ] Responsividade para mobile
 
-## Fase 4: Chat e Integração com Backend
-- [ ] Conectar com API do JarvisTravel (/api/chat)
-- [ ] Implementar envio de mensagens
-- [ ] Exibir respostas da IA em tempo real
-- [ ] Histórico de conversa
-- [ ] Indicador de digitação do agente
-- [ ] Tratamento de erros
+## Fase 4: Chat e Integração com Backend ✅
+- [x] Conectar com API do JarvisTravel (/api/chat)
+- [x] Implementar envio de mensagens
+- [x] Exibir respostas da IA em tempo real
+- [x] Histórico de conversa
+- [x] Indicador de digitação do agente
+- [x] Tratamento de erros
 
-## Fase 5: Animações Avançadas da Esfera Neural
-- [ ] Animar esfera em resposta ao chat (pulsação)
-- [ ] Intensificar brilho quando o agente está pensando
-- [ ] Efeito visual de "fala" (partículas se movem mais rápido)
-- [ ] Reações emocionais (cores mudam conforme o contexto)
-- [ ] Sincronização com áudio (se houver)
+## Fase 5: Animações Avançadas da Esfera Neural ✅
+- [x] Animar esfera em resposta ao chat (pulsação)
+- [x] Intensificar brilho quando o agente está "pensando"
+- [x] Efeito visual de "fala" (partículas se movem mais rápido)
+- [x] Otimizar para mobile (reduzir partículas e conexões)
+- [x] Detectar dispositivo automaticamente
 
 ## Fase 6: Testes e Deploy
 - [ ] Testes unitários (Vitest)
@@ -49,6 +49,7 @@
 - [ ] Otimização de performance
 - [ ] Deploy na Vercel
 - [ ] Testes de integração com backend
+- [ ] Criar README.md com instruções
 
 ---
 
