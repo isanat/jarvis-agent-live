@@ -3,13 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { MessageCircle, Send, LogOut, Settings } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
+import { NeuralSphere } from "@/components/NeuralSphere";
 
 /**
  * Home Page - Jarvis Agent Live
- * Main chat interface with animated agent avatar
+ * Main chat interface with animated neural sphere agent
  */
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
   const [inputValue, setInputValue] = useState("");
 
@@ -21,41 +25,13 @@ export default function Home() {
     }
   };
 
-  if (!isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-xl">
-          <CardHeader className="space-y-2 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <MessageCircle className="w-8 h-8 text-white" />
-              </div>
-            </div>
-            <CardTitle className="text-3xl">Jarvis Agent Live</CardTitle>
-            <CardDescription>Your AI Travel Assistant</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
-              <Input type="email" placeholder="your@email.com" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
-              <Input type="password" placeholder="••••••••" />
-            </div>
-            <Button
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-              onClick={() => setIsLoggedIn(true)}
-            >
-              Sign In
-            </Button>
-            <Button variant="outline" className="w-full">
-              Sign Up
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  const handleLogout = async () => {
+    await logout();
+    setLocation("/login");
+  };
+
+  if (!user) {
+    return null; // Router will handle redirect to login
   }
 
   return (
@@ -70,13 +46,14 @@ export default function Home() {
             <h1 className="text-xl font-bold">Jarvis Agent Live</h1>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
             <Button variant="ghost" size="icon">
               <Settings className="w-5 h-5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsLoggedIn(false)}
+              onClick={handleLogout}
             >
               <LogOut className="w-5 h-5" />
             </Button>
@@ -86,21 +63,21 @@ export default function Home() {
 
       {/* Main Chat Area */}
       <main className="flex-1 container py-6 flex flex-col gap-6 max-w-4xl mx-auto w-full">
-        {/* Agent Avatar Section */}
-        <Card className="shadow-lg">
-          <CardContent className="pt-6 flex flex-col items-center justify-center min-h-[300px] gap-4">
-            {/* Placeholder for animated agent avatar */}
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center shadow-lg">
-              <div className="text-6xl">🤖</div>
+        {/* Neural Sphere Agent Avatar Section */}
+        <Card className="shadow-lg overflow-hidden">
+          <CardContent className="pt-6 flex flex-col items-center justify-center min-h-[400px] gap-4">
+            {/* Neural Sphere 3D Component */}
+            <div className="w-full h-80 rounded-lg overflow-hidden">
+              <NeuralSphere />
             </div>
             <div className="text-center">
-              <h2 className="text-2xl font-bold">Jarvis</h2>
+              <h2 className="text-2xl font-bold">Jarvis Neural Agent</h2>
               <p className="text-muted-foreground">Your AI Travel Assistant</p>
             </div>
             {/* Agent status indicator */}
             <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
               <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-pulse" />
-              Ready to help
+              Neural network active
             </div>
           </CardContent>
         </Card>
