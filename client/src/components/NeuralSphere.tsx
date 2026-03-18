@@ -41,7 +41,7 @@ function NeuralSphereContent() {
   }, [metrics.quality, isMobile]);
 
   const SPHERE_RADIUS = 3;
-  const CONNECTION_DISTANCE = isMobile ? 2.0 : 2.5;
+  const CONNECTION_DISTANCE = isMobile ? 2.2 : 2.8;
 
   // Initialize particles
   useEffect(() => {
@@ -62,9 +62,11 @@ function NeuralSphereContent() {
         (Math.random() - 0.5) * 0.02
       );
 
-      // Color gradient: blue to purple
-      const hue = 0.6 + Math.random() * 0.2;
-      const color = new THREE.Color().setHSL(hue, 0.8, 0.6);
+      // Color gradient: cyan → indigo → violet
+      const hue = 0.58 + Math.random() * 0.22;
+      const sat = 0.85 + Math.random() * 0.15;
+      const lit = 0.55 + Math.random() * 0.15;
+      const color = new THREE.Color().setHSL(hue, sat, lit);
 
       particles.push({
         position,
@@ -109,11 +111,11 @@ function NeuralSphereContent() {
   // Create particle material
   const particleMaterial = useMemo(() => {
     return new THREE.PointsMaterial({
-      size: isMobile ? 0.06 : 0.08,
+      size: isMobile ? 0.10 : 0.13,
       vertexColors: true,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.92,
     });
   }, [isMobile]);
 
@@ -210,9 +212,9 @@ function NeuralSphereContent() {
       <lineSegments ref={linesRef}>
         <bufferGeometry />
         <lineBasicMaterial
-          color={isThinking ? 0xff6b9d : 0x6b7aff}
+          color={isThinking ? 0xff6b9d : 0x818cf8}
           transparent={true}
-          opacity={isThinking ? 0.4 : 0.2}
+          opacity={isThinking ? 0.55 : 0.30}
           linewidth={1}
         />
       </lineSegments>
@@ -223,13 +225,13 @@ function NeuralSphereContent() {
       {/* Point lights for glow effect */}
       <pointLight
         position={[5, 5, 5]}
-        intensity={isThinking ? 1.5 : 0.8}
-        color={0x6b7aff}
+        intensity={isThinking ? 2.0 : 1.2}
+        color={0x818cf8}
       />
       <pointLight
         position={[-5, -5, -5]}
-        intensity={isThinking ? 1.2 : 0.6}
-        color={0xb366ff}
+        intensity={isThinking ? 1.8 : 1.0}
+        color={0xc084fc}
       />
 
       {/* Additional light when thinking */}
@@ -246,7 +248,7 @@ export function NeuralSphere() {
   return (
     <div className="w-full h-full relative">
       <Canvas
-        camera={{ position: [0, 0, 8], fov: 75 }}
+        camera={{ position: [0, 0, 5.5], fov: 68 }}
         style={{ width: '100%', height: '100%' }}
       >
         <NeuralSphereContent />
