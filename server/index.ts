@@ -6,9 +6,50 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const UPSTREAM_API = process.env.UPSTREAM_API_URL || "https://travelconcierge.site";
+
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  app.use(express.json({ limit: "2mb" }));
+
+  // Proxy POST /chat-stream → upstream API, preserving SSE streaming
+  app.post("/chat-stream", async (req, res) => {
+    try {
+      const upstream = await fetch(`${UPSTREAM_API}/api/chat-stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body),
+      });
+
+      if (!upstream.ok || !upstream.body) {
+        const text = await upstream.text().catch(() => "Upstream error");
+        return res.status(upstream.status).send(text);
+      }
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+
+      const reader = upstream.body.getReader();
+      const flush = () => { if (typeof (res as any).flush === "function") (res as any).flush(); };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(value);
+        flush();
+      }
+      res.end();
+    } catch (err) {
+      console.error("[/chat-stream proxy]", err);
+      if (!res.headersSent) {
+        res.status(502).json({ error: "Upstream unavailable" });
+      }
+    }
+  });
 
   // Serve static files from dist/public in production
   const staticPath =
