@@ -16,18 +16,25 @@
   ],
   "headers": [
     {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" }
-      ]
-    },
-    {
       "source": "/sw.js",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
         { "key": "Service-Worker-Allowed", "value": "/" }
       ]
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json" }
+      ]
     }
-  ]
+  ],
+  "env": {
+    "VITE_BACKEND_URL": "/api",
+    "VITE_FIREBASE_API_KEY": "AIzaSyAUyYulp5z_uIpDWys_6NRNLeDZkhVS39U",
+    "VITE_FIREBASE_AUTH_DOMAIN": "jarvistravelapp.firebaseapp.com",
+    "VITE_FIREBASE_PROJECT_ID": "jarvistravelapp",
+    "VITE_FIREBASE_STORAGE_BUCKET": "jarvistravelapp.firebasestorage.app",
+    "VITE_FIREBASE_MESSAGING_SENDER_ID": "630076196109"
+  }
 }
