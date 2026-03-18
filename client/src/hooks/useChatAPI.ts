@@ -10,6 +10,7 @@ export interface ChatMessage {
 interface UserLocation {
   lat: number;
   lon: number;
+  accuracy?: number;
 }
 
 interface UseChatAPIReturn {
@@ -31,13 +32,30 @@ export function useChatAPI(): UseChatAPIReturn {
   const [location, setLocation] = useState<UserLocation | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Request GPS on mount
+  // Request GPS on mount — high accuracy so mobile uses real GPS, not IP
   useEffect(() => {
     if (!navigator.geolocation) return;
+
+    const onSuccess = (pos: GeolocationPosition) => {
+      setLocation({
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,   // meters — server uses this to trust/distrust the fix
+      });
+    };
+
+    // First try high accuracy (real GPS on mobile)
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      () => { /* silently ignore permission denial */ },
-      { enableHighAccuracy: false, maximumAge: 120_000, timeout: 10_000 }
+      onSuccess,
+      () => {
+        // Fallback: accept lower accuracy (WiFi triangulation on desktop)
+        navigator.geolocation.getCurrentPosition(
+          onSuccess,
+          () => { /* silently ignore if user denies */ },
+          { enableHighAccuracy: false, maximumAge: 300_000, timeout: 15_000 }
+        );
+      },
+      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 15_000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);

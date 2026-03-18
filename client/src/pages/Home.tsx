@@ -306,7 +306,7 @@ export default function Home() {
                   {/* ── Hero sphere — fills top half of screen ── */}
                   <div
                     className="relative w-full shrink-0"
-                    style={{ height: "min(50vh, 320px)" }}
+                    style={{ height: "min(56vh, 400px)" }}
                   >
                     {/* Glow halo beneath the sphere */}
                     <div
@@ -636,7 +636,7 @@ export default function Home() {
           className="glass-dark shrink-0 px-4 py-3"
           style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
         >
-          <form onSubmit={handleSend} className="flex items-center gap-2">
+          <form onSubmit={handleSend} className="flex items-center gap-2 w-full overflow-hidden">
             {/* Mic button */}
             {supported.stt && (
               <button
@@ -669,6 +669,7 @@ export default function Home() {
               disabled={loading}
               className="flex-1 h-11 rounded-2xl px-4 text-sm outline-none transition-all"
               style={{
+                minWidth: 0,
                 background: "rgba(255,255,255,0.07)",
                 border: "1px solid rgba(255,255,255,0.1)",
                 color: "rgba(255,255,255,0.9)",
