@@ -6,13 +6,11 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
-const isBuild = process.env.NODE_ENV === "production";
-
-const plugins = [
+const plugins = (command: string) => [
   react(),
   tailwindcss(),
   // Dev-only plugins: inject source locations and Manus runtime (not for production builds)
-  ...(!isBuild ? [jsxLocPlugin(), vitePluginManusRuntime()] : []),
+  ...(command === "serve" ? [jsxLocPlugin(), vitePluginManusRuntime()] : []),
   VitePWA({
     registerType: "autoUpdate",
     includeAssets: ["apple-touch-icon.png", "icon-192.png", "icon-512.png"],
@@ -66,8 +64,8 @@ const plugins = [
   }),
 ];
 
-export default defineConfig({
-  plugins,
+export default defineConfig(({ command }) => ({
+  plugins: plugins(command),
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -100,4 +98,4 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
-});
+}));
