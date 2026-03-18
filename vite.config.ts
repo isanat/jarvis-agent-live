@@ -6,11 +6,13 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
+const isBuild = process.env.NODE_ENV === "production";
+
 const plugins = [
   react(),
   tailwindcss(),
-  jsxLocPlugin(),
-  vitePluginManusRuntime(),
+  // Dev-only plugins: inject source locations and Manus runtime (not for production builds)
+  ...(!isBuild ? [jsxLocPlugin(), vitePluginManusRuntime()] : []),
   VitePWA({
     registerType: "autoUpdate",
     includeAssets: ["apple-touch-icon.png", "icon-192.png", "icon-512.png"],
