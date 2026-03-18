@@ -1,54 +1,130 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  MessageCircle, Send, LogOut, Settings, Loader2,
-  Bell, BellRing, Plane, AlertTriangle, Info, X, MapPin,
-} from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useNeuralSphere } from "@/contexts/NeuralSphereContext";
 import { useChatAPI } from "@/hooks/useChatAPI";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useVoice } from "@/hooks/useVoice";
 import { NeuralSphere } from "@/components/NeuralSphere";
 import { toast } from "sonner";
+import {
+  Send, Mic, MicOff, Bell, BellRing, Plane, Settings,
+  X, AlertTriangle, Info, LogOut, User, MessageCircle,
+  Volume2, VolumeX, Loader2, ChevronRight, Sparkles, MapPin,
+} from "lucide-react";
 
-const SEVERITY_STYLES: Record<string, { bg: string; border: string; icon: React.ComponentType<{ className?: string }> }> = {
-  critical: { bg: "bg-red-50 dark:bg-red-950/40",   border: "border-red-300 dark:border-red-700",   icon: AlertTriangle },
-  urgent:   { bg: "bg-orange-50 dark:bg-orange-950/40", border: "border-orange-300 dark:border-orange-700", icon: BellRing },
-  warning:  { bg: "bg-yellow-50 dark:bg-yellow-950/40", border: "border-yellow-300 dark:border-yellow-700", icon: AlertTriangle },
-  info:     { bg: "bg-blue-50 dark:bg-blue-950/40",  border: "border-blue-300 dark:border-blue-700",  icon: Info },
+// ── Animated Orb (CSS-only, used when sphere is hidden) ──────────────────────
+function JarvisOrb({ state, size = 38 }: { state: string; size?: number }) {
+  const glow =
+    state === "thinking" || state === "searching"
+      ? "rgba(251,191,36,0.7)"
+      : state === "alert"
+      ? "rgba(239,68,68,0.7)"
+      : "rgba(124,58,237,0.7)";
+
+  const grad =
+    state === "thinking" || state === "searching"
+      ? "linear-gradient(135deg,#f59e0b,#ef4444)"
+      : state === "alert"
+      ? "linear-gradient(135deg,#ef4444,#dc2626)"
+      : "linear-gradient(135deg,#7c3aed,#3b82f6)";
+
+  return (
+    <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+      {/* Ping ring */}
+      <div
+        className="absolute inset-0 rounded-full animate-ping opacity-30"
+        style={{ background: glow, animationDuration: "2.5s" }}
+      />
+      {/* Glow blur */}
+      <div
+        className="absolute inset-0 rounded-full blur-sm opacity-60 animate-orb-pulse"
+        style={{ background: grad }}
+      />
+      {/* Face */}
+      <div
+        className="relative flex items-center justify-center rounded-full text-white font-extrabold"
+        style={{ width: size, height: size, background: grad, fontSize: size * 0.38 }}
+      >
+        J
+      </div>
+    </div>
+  );
+}
+
+// ── Voice waveform bars ───────────────────────────────────────────────────────
+function VoiceWave({ bars = 7 }: { bars?: number }) {
+  return (
+    <div className="flex items-center gap-[3px]">
+      {Array.from({ length: bars }).map((_, i) => (
+        <div
+          key={i}
+          className="w-[3px] rounded-full bg-red-400 animate-voice-bar"
+          style={{ height: 18, animationDelay: `${i * 0.09}s` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Quick suggestion chips ────────────────────────────────────────────────────
+const SUGGESTIONS = [
+  { icon: "✈️", label: "Status do meu voo" },
+  { icon: "🌤️", label: "Clima no destino" },
+  { icon: "🏨", label: "Hotéis próximos" },
+  { icon: "📋", label: "Checklist de viagem" },
+];
+
+// ── Severity styles for notification items ───────────────────────────────────
+const SEV: Record<string, { color: string; Icon: typeof AlertTriangle }> = {
+  critical: { color: "#ef4444", Icon: AlertTriangle },
+  urgent:   { color: "#f97316", Icon: BellRing },
+  warning:  { color: "#eab308", Icon: AlertTriangle },
+  info:     { color: "#3b82f6", Icon: Info },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Home() {
   const { user, logout } = useAuth();
-  const { setAgentState } = useNeuralSphere();
+  const { setAgentState, agentState } = useNeuralSphere();
   const [, setLocation] = useLocation();
   const { messages, loading, agentPhase, sendMessage, clearMessages } = useChatAPI();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user?.uid);
-  const [inputValue, setInputValue] = useState("");
-  const [notifOpen, setNotifOpen] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to latest message
+  const [inputValue, setInputValue] = useState("");
+  const [activeTab, setActiveTab] = useState<"chat" | "trips" | "alerts" | "profile">("chat");
+  const [autoSpeak, setAutoSpeak] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── Voice ──
+  const { isListening, isSpeaking, transcript, startListening, stopListening, speak, cancelSpeech, supported } =
+    useVoice((final) => {
+      if (final.trim()) setInputValue(final);
+    });
+
+  // ── Push notification permission ──
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // ── Auto-scroll ──
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Sync sphere state with chat loading phases
+  // ── Sphere state ──
   useEffect(() => {
-    if (!loading) {
-      setAgentState("idle");
-    } else if (agentPhase) {
-      setAgentState("searching");
-    } else {
-      setAgentState("thinking");
-    }
+    if (!loading) setAgentState("idle");
+    else if (agentPhase) setAgentState("searching");
+    else setAgentState("thinking");
   }, [loading, agentPhase, setAgentState]);
 
-  // Flash sphere alert when new critical notification arrives
+  // ── Critical notification → sphere alert ──
   useEffect(() => {
     const critical = notifications.find((n) => !n.read && (n.severity === "critical" || n.severity === "urgent"));
     if (critical) {
@@ -58,254 +134,526 @@ export default function Home() {
     }
   }, [notifications, setAgentState]);
 
-  // Toast for new unread notifications
+  // ── Auto-speak last assistant message ──
   useEffect(() => {
-    const newest = notifications[0];
-    if (newest && !newest.read) {
-      toast(newest.title, {
-        description: newest.message.slice(0, 80) + (newest.message.length > 80 ? "..." : ""),
+    if (!autoSpeak || !supported.tts || loading) return;
+    const last = messages[messages.length - 1];
+    if (last?.role === "assistant" && last.content) speak(last.content);
+  }, [messages, loading, autoSpeak, speak, supported.tts]);
+
+  // ── Toast for new notification ──
+  useEffect(() => {
+    const n = notifications[0];
+    if (n && !n.read) {
+      toast(n.title, {
+        description: n.message.slice(0, 80),
         duration: 5000,
-        action: { label: "Ver", onClick: () => setNotifOpen(true) },
+        action: { label: "Ver", onClick: () => { setNotifOpen(true); setActiveTab("alerts"); } },
       });
     }
-    // We only want to fire when a truly new notification appears — deps intentionally narrow
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifications[0]?.id]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
-    try {
-      await sendMessage(inputValue);
+  // ── Update input from transcript ──
+  useEffect(() => {
+    if (transcript) setInputValue(transcript);
+  }, [transcript]);
+
+  // ── Send ──
+  const handleSend = useCallback(
+    async (e?: React.FormEvent) => {
+      e?.preventDefault();
+      const msg = inputValue.trim();
+      if (!msg || loading) return;
       setInputValue("");
-    } catch {
-      toast.error("Falha ao enviar mensagem. Tente novamente.");
+      cancelSpeech();
+      try { await sendMessage(msg); }
+      catch { toast.error("Falha ao enviar mensagem."); }
+    },
+    [inputValue, loading, sendMessage, cancelSpeech],
+  );
+
+  // ── Mic toggle ──
+  const handleMic = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    setLocation("/login");
-  };
+  const handleLogout = async () => { await logout(); setLocation("/login"); };
 
   if (!user) return null;
 
+  const hasMessages = messages.length > 0;
+  const sphereState = agentState || "idle";
+
+  // ── Nav tabs ──
+  const NAV = [
+    { key: "chat",    icon: MessageCircle, label: "Chat" },
+    { key: "trips",   icon: Plane,         label: "Viagens" },
+    { key: "alerts",  icon: unreadCount > 0 ? BellRing : Bell, label: "Alertas", badge: unreadCount },
+    { key: "profile", icon: User,          label: "Perfil" },
+  ] as const;
+
+  // ── Active tab handler ──
+  const handleTab = (key: typeof activeTab) => {
+    if (key === "trips") { setLocation("/trips"); return; }
+    if (key === "alerts") {
+      setActiveTab("alerts");
+      markAllAsRead();
+    } else {
+      setActiveTab(key);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <MessageCircle className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold">Jarvis Travel</h1>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
-
-            {/* Trips shortcut */}
-            <Button variant="ghost" size="icon" onClick={() => setLocation("/trips")} title="Minhas viagens">
-              <Plane className="w-5 h-5" />
-            </Button>
-
-            {/* Notification bell */}
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => { setNotifOpen((o) => !o); if (unreadCount > 0) markAllAsRead(); }}
-                title="Notificações"
-              >
-                {unreadCount > 0 ? <BellRing className="w-5 h-5 text-orange-500 animate-pulse" /> : <Bell className="w-5 h-5" />}
-              </Button>
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
+    <div
+      className="fixed inset-0 flex flex-col overflow-hidden"
+      style={{
+        background: "radial-gradient(ellipse at 80% 10%, rgba(124,58,237,0.18) 0%,transparent 55%), radial-gradient(ellipse at 20% 90%, rgba(37,99,235,0.12) 0%,transparent 55%), #060011",
+      }}
+    >
+      {/* ── Top header ────────────────────────────────────────── */}
+      <header
+        className="glass-dark pt-safe flex items-center justify-between px-4 py-3 shrink-0"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        <div className="flex items-center gap-2.5">
+          <JarvisOrb state={sphereState} size={36} />
+          <div className="leading-tight">
+            <p className="text-white font-bold text-base tracking-wide">Jarvis</p>
+            <div className="flex items-center gap-1.5">
+              {loading ? (
+                <>
+                  <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-400" />
+                  <span className="text-[11px] text-amber-400">{agentPhase || "Processando..."}</span>
+                </>
+              ) : (
+                <>
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[11px] text-emerald-400">Online</span>
+                </>
               )}
             </div>
-
-            <Button variant="ghost" size="icon">
-              <Settings className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
-              <LogOut className="w-5 h-5" />
-            </Button>
           </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {/* TTS toggle */}
+          {supported.tts && (
+            <button
+              onClick={() => { setAutoSpeak((v) => !v); cancelSpeech(); }}
+              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all"
+              style={{ background: autoSpeak ? "rgba(124,58,237,0.3)" : "rgba(255,255,255,0.05)" }}
+              title={autoSpeak ? "Silenciar Jarvis" : "Jarvis falar"}
+            >
+              {isSpeaking ? (
+                <Volume2 className="w-4 h-4 text-violet-400" />
+              ) : autoSpeak ? (
+                <Volume2 className="w-4 h-4 text-violet-300" />
+              ) : (
+                <VolumeX className="w-4 h-4 text-white/40" />
+              )}
+            </button>
+          )}
+
+          {/* Notifications bell */}
+          <button
+            onClick={() => handleTab("alerts")}
+            className="relative w-9 h-9 flex items-center justify-center rounded-xl"
+            style={{ background: "rgba(255,255,255,0.05)" }}
+          >
+            {unreadCount > 0 ? (
+              <BellRing className="w-4 h-4 text-orange-400 animate-pulse" />
+            ) : (
+              <Bell className="w-4 h-4 text-white/50" />
+            )}
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Settings */}
+          <button
+            onClick={() => setActiveTab("profile")}
+            className="w-9 h-9 flex items-center justify-center rounded-xl"
+            style={{ background: "rgba(255,255,255,0.05)" }}
+          >
+            <Settings className="w-4 h-4 text-white/50" />
+          </button>
         </div>
       </header>
 
-      {/* Notification Panel (overlay) */}
-      {notifOpen && (
-        <div className="fixed inset-0 z-20 flex justify-end" onClick={() => setNotifOpen(false)}>
-          <div
-            className="w-full max-w-sm h-full bg-white dark:bg-slate-900 shadow-2xl flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="font-semibold text-lg">Notificações</h2>
-              <Button variant="ghost" size="icon" onClick={() => setNotifOpen(false)}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {notifications.length === 0 ? (
-                <p className="text-muted-foreground text-sm text-center mt-8">Nenhuma notificação</p>
-              ) : (
-                notifications.map((n) => {
-                  const style = SEVERITY_STYLES[n.severity] ?? SEVERITY_STYLES.info;
-                  const Icon = style.icon;
-                  return (
-                    <div
-                      key={n.id}
-                      className={`rounded-lg border p-3 cursor-pointer transition-opacity ${style.bg} ${style.border} ${n.read ? "opacity-60" : ""}`}
-                      onClick={() => markAsRead(n.id)}
-                    >
-                      <div className="flex items-start gap-2">
-                        <Icon className="w-4 h-4 mt-0.5 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">{n.title}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
-                          {n.createdAt && (
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                              {n.createdAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Main content ──────────────────────────────────────── */}
+      {/* position:relative wrapper so the absolute scroll child fills exactly this area */}
+      <main className="flex-1 relative" style={{ minHeight: 0 }}>
 
-      {/* Main Chat Area */}
-      <main className="flex-1 container py-6 flex flex-col gap-6 max-w-4xl mx-auto w-full overflow-hidden">
-        {/* Neural Sphere */}
-        <Card className="shadow-lg overflow-hidden">
-          <CardContent className="pt-6 flex flex-col items-center justify-center min-h-[400px] gap-4">
-            <div className="w-full h-80 rounded-lg overflow-hidden">
-              <NeuralSphere />
-            </div>
-            <div className="text-center">
-              <h2 className="text-2xl font-bold">Jarvis Neural Agent</h2>
-              <p className="text-muted-foreground">Seu concierge de viagens inteligente</p>
-            </div>
-            {/* Agent state indicator */}
-            <div className="flex items-center gap-2 text-sm">
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
-                  <span className="text-orange-600 dark:text-orange-400">
-                    {agentPhase ? `🔍 ${agentPhase}...` : "Pensando..."}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-pulse" />
-                  <span className="text-green-600 dark:text-green-400">Rede neural ativa</span>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/* ── CHAT TAB ── */}
+        {activeTab === "chat" && (
+          <>
+            {!hasMessages ? (
+              /* Welcome / empty state — absolute fill so it never overflows */
+              <div
+                className="absolute inset-0 overflow-y-auto scrollbar-hidden"
+                style={{ scrollbarWidth: "none" }}
+              >
+                <div className="flex flex-col items-center justify-center min-h-full px-6 gap-6 py-8">
+                  <div className="w-44 h-44 rounded-full overflow-hidden shrink-0">
+                    <NeuralSphere />
+                  </div>
+                  <div className="text-center">
+                    <h2 className="text-2xl font-extrabold text-white tracking-tight">Jarvis Neural Agent</h2>
+                    <p className="text-white/50 text-sm mt-1">Seu concierge de viagens inteligente</p>
+                  </div>
 
-        {/* Chat Messages */}
-        <Card className="shadow-lg flex-1 flex flex-col min-h-0">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle>Chat</CardTitle>
-            {messages.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearMessages} className="text-xs text-muted-foreground">
-                Limpar
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col gap-3 overflow-y-auto max-h-[500px] pb-4">
-            {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-                <MessageCircle className="w-10 h-10 opacity-30" />
-                <p className="text-sm">Inicie uma conversa com o Jarvis</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {["Status do meu voo", "Clima no destino", "Checklist de viagem"].map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => setInputValue(q)}
-                      className="text-xs px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors"
-                    >
-                      {q}
-                    </button>
-                  ))}
+                  {/* Quick suggestions */}
+                  <div className="w-full max-w-xs grid grid-cols-2 gap-2">
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s.label}
+                        onClick={() => { setInputValue(s.label); inputRef.current?.focus(); }}
+                        className="glass rounded-2xl px-3 py-3 text-left transition-all active:scale-95"
+                      >
+                        <span className="text-lg">{s.icon}</span>
+                        <p className="text-white/80 text-xs mt-1 leading-tight">{s.label}</p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
-              <>
+              /* ── Chat messages — absolute fill guarantees scroll always works ── */
+              <div
+                className="absolute inset-0 overflow-y-auto scrollbar-hidden px-4 pt-3 pb-2"
+                style={{ scrollbarWidth: "none" }}
+              >
+                {/* Block-layout stack — no flex-col, so messages never collapse */}
                 {messages.map((msg, idx) => (
-                  <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+                      alignItems: "flex-start",
+                      marginBottom: 12,
+                      gap: 8,
+                    }}
+                  >
+                    {/* Jarvis avatar */}
+                    {msg.role === "assistant" && (
+                      <div style={{ marginTop: 2, flexShrink: 0 }}>
+                        <JarvisOrb
+                          state={loading && idx === messages.length - 1 ? sphereState : "idle"}
+                          size={24}
+                        />
+                      </div>
+                    )}
+
+                    {/* Bubble */}
                     <div
-                      className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
-                        msg.role === "user"
-                          ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-br-sm"
-                          : "bg-gray-100 dark:bg-slate-800 text-foreground rounded-bl-sm"
-                      }`}
+                      style={{
+                        maxWidth: "76%",
+                        borderRadius: 18,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        lineHeight: 1.55,
+                        wordBreak: "break-word",
+                        whiteSpace: "pre-wrap",
+                        ...(msg.role === "user"
+                          ? {
+                              background: "linear-gradient(135deg,#7c3aed,#3b82f6)",
+                              color: "#fff",
+                              borderBottomRightRadius: 4,
+                            }
+                          : {
+                              background: "rgba(255,255,255,0.07)",
+                              backdropFilter: "blur(12px)",
+                              WebkitBackdropFilter: "blur(12px)",
+                              border: "1px solid rgba(255,255,255,0.10)",
+                              color: "rgba(255,255,255,0.92)",
+                              borderBottomLeftRadius: 4,
+                            }),
+                      }}
                     >
-                      {/* Tool progress indicator */}
                       {msg.toolProgress && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>
                           <Loader2 className="w-3 h-3 animate-spin" />
                           {msg.toolProgress}
                         </div>
                       )}
-                      {/* Message text — preserve whitespace / line breaks */}
-                      <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+                      {msg.content}
                     </div>
                   </div>
                 ))}
+
+                {/* Thinking indicator */}
                 {loading && !messages[messages.length - 1]?.content && (
-                  <div className="flex justify-start">
-                    <div className="bg-gray-100 dark:bg-slate-800 px-4 py-3 rounded-2xl rounded-bl-sm">
-                      <div className="flex gap-1.5">
-                        {[0, 0.15, 0.3].map((delay, i) => (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
+                    <div style={{ marginTop: 2, flexShrink: 0 }}>
+                      <JarvisOrb state="thinking" size={24} />
+                    </div>
+                    <div
+                      style={{
+                        borderRadius: 18,
+                        borderBottomLeftRadius: 4,
+                        padding: "12px 16px",
+                        background: "rgba(255,255,255,0.07)",
+                        border: "1px solid rgba(255,255,255,0.10)",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {[0, 0.15, 0.3].map((d, i) => (
                           <div
                             key={i}
-                            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                            style={{ animationDelay: `${delay}s` }}
+                            className="animate-bounce"
+                            style={{
+                              width: 6, height: 6, borderRadius: "50%",
+                              background: "#a78bfa", animationDelay: `${d}s`,
+                            }}
                           />
                         ))}
                       </div>
                     </div>
                   </div>
                 )}
-                <div ref={messagesEndRef} />
-              </>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* GPS indicator + Input */}
-        <div className="space-y-2">
-          <form onSubmit={handleSendMessage} className="flex gap-2">
-            <Input
-              placeholder="Pergunte ao Jarvis..."
+                {/* Clear link */}
+                {hasMessages && (
+                  <div style={{ textAlign: "center", paddingTop: 4, paddingBottom: 8 }}>
+                    <button
+                      onClick={clearMessages}
+                      style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}
+                    >
+                      Limpar conversa
+                    </button>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── ALERTS TAB ── */}
+        {activeTab === "alerts" && (
+          <div className="absolute inset-0 overflow-y-auto scrollbar-hidden px-4 py-4" style={{ scrollbarWidth: "none" }}>
+            <h2 className="text-white font-bold text-lg mb-3">Notificações</h2>
+            <div className="flex flex-col gap-3">
+            {notifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 mt-16 text-white/30">
+                <Bell className="w-12 h-12" />
+                <p className="text-sm">Nenhuma notificação</p>
+              </div>
+            ) : (
+              notifications.map((n) => {
+                const s = SEV[n.severity] ?? SEV.info;
+                const Icon = s.Icon;
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => markAsRead(n.id)}
+                    className="glass rounded-2xl p-4 text-left w-full transition-all active:scale-[0.98]"
+                    style={{ opacity: n.read ? 0.5 : 1, display: "block" }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: `${s.color}22` }}
+                      >
+                        <Icon className="w-4 h-4" style={{ color: s.color }} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white font-semibold text-sm">{n.title}</p>
+                        <p className="text-white/55 text-xs mt-0.5 leading-relaxed">{n.message}</p>
+                        {n.createdAt && (
+                          <p className="text-white/25 text-[10px] mt-1">
+                            {n.createdAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+            </div>{/* end inner gap container */}
+          </div>
+        )}
+
+        {/* ── PROFILE TAB ── */}
+        {activeTab === "profile" && (
+          <div className="absolute inset-0 overflow-y-auto scrollbar-hidden px-4 py-6" style={{ scrollbarWidth: "none" }}>
+            <div className="flex flex-col gap-4">
+            {/* Avatar */}
+            <div className="flex flex-col items-center gap-3 mb-2">
+              <div
+                className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-extrabold text-white"
+                style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}
+              >
+                {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "U"}
+              </div>
+              <div className="text-center">
+                <p className="text-white font-bold">{user.displayName || "Usuário"}</p>
+                <p className="text-white/45 text-sm">{user.email}</p>
+              </div>
+            </div>
+
+            {/* Options */}
+            {[
+              { icon: Sparkles, label: "Plano Premium", sub: "Ativo" },
+              { icon: MapPin, label: "GPS", sub: "Localização ativada" },
+              { icon: Bell, label: "Notificações push", sub: "Ativadas" },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="glass rounded-2xl px-4 py-3.5 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon className="w-5 h-5 text-violet-400" />
+                  <div>
+                    <p className="text-white text-sm font-medium">{item.label}</p>
+                    <p className="text-white/40 text-xs">{item.sub}</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/25" />
+              </div>
+            ))}
+
+            <button
+              onClick={handleLogout}
+              className="glass rounded-2xl px-4 py-3.5 flex items-center gap-3 w-full mt-2"
+              style={{ borderColor: "rgba(239,68,68,0.2)" }}
+            >
+              <LogOut className="w-5 h-5 text-red-400" />
+              <span className="text-red-400 font-medium text-sm">Sair</span>
+            </button>
+            </div>{/* end inner flex-col gap-4 */}
+          </div>
+        )}
+      </main>
+
+      {/* ── Voice listening overlay ────────────────────────────── */}
+      {isListening && (
+        <div
+          className="absolute left-4 right-4 animate-slide-up"
+          style={{ bottom: 145, zIndex: 20 }}
+        >
+          <div
+            className="glass-dark rounded-2xl px-5 py-3 flex items-center justify-between"
+            style={{ borderColor: "rgba(239,68,68,0.3)" }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-white/80 text-sm">Ouvindo...</span>
+            </div>
+            <VoiceWave />
+          </div>
+        </div>
+      )}
+
+      {/* ── Input bar ─────────────────────────────────────────── */}
+      {activeTab === "chat" && (
+        <div
+          className="glass-dark shrink-0 px-4 py-3"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <form onSubmit={handleSend} className="flex items-center gap-2">
+            {/* Mic button */}
+            {supported.stt && (
+              <button
+                type="button"
+                onPointerDown={handleMic}
+                className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90"
+                style={{
+                  background: isListening
+                    ? "linear-gradient(135deg,#ef4444,#dc2626)"
+                    : "rgba(255,255,255,0.08)",
+                  boxShadow: isListening ? "0 0 20px rgba(239,68,68,0.5)" : "none",
+                }}
+                title={isListening ? "Parar" : "Falar"}
+              >
+                {isListening ? (
+                  <MicOff className="w-5 h-5 text-white" />
+                ) : (
+                  <Mic className="w-5 h-5 text-white/60" />
+                )}
+              </button>
+            )}
+
+            {/* Text input */}
+            <input
+              ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) handleSend(); }}
+              placeholder="Pergunte ao Jarvis..."
               disabled={loading}
-              className="flex-1"
+              className="flex-1 h-11 rounded-2xl px-4 text-sm outline-none transition-all"
+              style={{
+                background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                color: "rgba(255,255,255,0.9)",
+              }}
             />
-            <Button
+
+            {/* Send button */}
+            <button
               type="submit"
               disabled={loading || !inputValue.trim()}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shrink-0"
+              className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90 disabled:opacity-30"
+              style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            </Button>
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-white" />
+              ) : (
+                <Send className="w-4.5 h-4.5 text-white" style={{ width: 18, height: 18 }} />
+              )}
+            </button>
           </form>
         </div>
-      </main>
+      )}
+
+      {/* ── Bottom navigation ─────────────────────────────────── */}
+      <nav
+        className="glass-dark pb-safe shrink-0 flex justify-around items-center px-2 pt-2"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        {NAV.map(({ key, icon: Icon, label, badge }) => {
+          const active = activeTab === key;
+          return (
+            <button
+              key={key}
+              onClick={() => handleTab(key as typeof activeTab)}
+              className="relative flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-2xl transition-all active:scale-95"
+              style={{ minWidth: 56, background: active ? "rgba(124,58,237,0.2)" : "transparent" }}
+            >
+              <Icon
+                className="w-5 h-5 transition-colors"
+                style={{
+                  color: active ? "#a78bfa" : "rgba(255,255,255,0.35)",
+                  ...(key === "alerts" && (badge ?? 0) > 0 ? { color: "#fb923c" } : {}),
+                }}
+              />
+              <span
+                className="text-[10px] font-medium"
+                style={{ color: active ? "#a78bfa" : "rgba(255,255,255,0.3)" }}
+              >
+                {label}
+              </span>
+              {(badge ?? 0) > 0 && (
+                <span className="absolute top-0 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {(badge ?? 0) > 9 ? "9+" : badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
