@@ -289,53 +289,81 @@ export default function Home() {
       </header>
 
       {/* ── Main content ──────────────────────────────────────── */}
-      <main className="flex-1 overflow-hidden flex flex-col min-h-0">
+      {/* position:relative wrapper so the absolute scroll child fills exactly this area */}
+      <main className="flex-1 relative" style={{ minHeight: 0 }}>
 
         {/* ── CHAT TAB ── */}
         {activeTab === "chat" && (
           <>
             {!hasMessages ? (
-              /* Welcome / empty state */
-              <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6 overflow-y-auto scrollbar-hidden">
-                <div className="w-48 h-48 rounded-full overflow-hidden">
-                  <NeuralSphere />
-                </div>
-                <div className="text-center">
-                  <h2 className="text-2xl font-extrabold text-white tracking-tight">Jarvis Neural Agent</h2>
-                  <p className="text-white/50 text-sm mt-1">Seu concierge de viagens inteligente</p>
-                </div>
+              /* Welcome / empty state — absolute fill so it never overflows */
+              <div
+                className="absolute inset-0 overflow-y-auto scrollbar-hidden"
+                style={{ scrollbarWidth: "none" }}
+              >
+                <div className="flex flex-col items-center justify-center min-h-full px-6 gap-6 py-8">
+                  <div className="w-44 h-44 rounded-full overflow-hidden shrink-0">
+                    <NeuralSphere />
+                  </div>
+                  <div className="text-center">
+                    <h2 className="text-2xl font-extrabold text-white tracking-tight">Jarvis Neural Agent</h2>
+                    <p className="text-white/50 text-sm mt-1">Seu concierge de viagens inteligente</p>
+                  </div>
 
-                {/* Quick suggestions */}
-                <div className="w-full max-w-xs grid grid-cols-2 gap-2">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s.label}
-                      onClick={() => { setInputValue(s.label); inputRef.current?.focus(); }}
-                      className="glass rounded-2xl px-3 py-3 text-left transition-all active:scale-95"
-                    >
-                      <span className="text-lg">{s.icon}</span>
-                      <p className="text-white/80 text-xs mt-1 leading-tight">{s.label}</p>
-                    </button>
-                  ))}
+                  {/* Quick suggestions */}
+                  <div className="w-full max-w-xs grid grid-cols-2 gap-2">
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s.label}
+                        onClick={() => { setInputValue(s.label); inputRef.current?.focus(); }}
+                        className="glass rounded-2xl px-3 py-3 text-left transition-all active:scale-95"
+                      >
+                        <span className="text-lg">{s.icon}</span>
+                        <p className="text-white/80 text-xs mt-1 leading-tight">{s.label}</p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
-              /* Chat messages */
-              <div className="flex-1 overflow-y-auto scrollbar-hidden px-4 py-3 flex flex-col gap-3">
+              /* ── Chat messages — absolute fill guarantees scroll always works ── */
+              <div
+                className="absolute inset-0 overflow-y-auto scrollbar-hidden px-4 pt-3 pb-2"
+                style={{ scrollbarWidth: "none" }}
+              >
+                {/* Block-layout stack — no flex-col, so messages never collapse */}
                 {messages.map((msg, idx) => (
                   <div
                     key={idx}
-                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-slide-up`}
+                    style={{
+                      display: "flex",
+                      justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+                      alignItems: "flex-start",
+                      marginBottom: 12,
+                      gap: 8,
+                    }}
                   >
+                    {/* Jarvis avatar */}
                     {msg.role === "assistant" && (
-                      <div className="mr-2 mt-1 shrink-0">
-                        <JarvisOrb state={loading && idx === messages.length - 1 ? sphereState : "idle"} size={26} />
+                      <div style={{ marginTop: 2, flexShrink: 0 }}>
+                        <JarvisOrb
+                          state={loading && idx === messages.length - 1 ? sphereState : "idle"}
+                          size={24}
+                        />
                       </div>
                     )}
+
+                    {/* Bubble */}
                     <div
-                      className="max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed"
-                      style={
-                        msg.role === "user"
+                      style={{
+                        maxWidth: "76%",
+                        borderRadius: 18,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        lineHeight: 1.55,
+                        wordBreak: "break-word",
+                        whiteSpace: "pre-wrap",
+                        ...(msg.role === "user"
                           ? {
                               background: "linear-gradient(135deg,#7c3aed,#3b82f6)",
                               color: "#fff",
@@ -344,41 +372,48 @@ export default function Home() {
                           : {
                               background: "rgba(255,255,255,0.07)",
                               backdropFilter: "blur(12px)",
-                              border: "1px solid rgba(255,255,255,0.1)",
+                              WebkitBackdropFilter: "blur(12px)",
+                              border: "1px solid rgba(255,255,255,0.10)",
                               color: "rgba(255,255,255,0.92)",
                               borderBottomLeftRadius: 4,
-                            }
-                      }
+                            }),
+                      }}
                     >
                       {msg.toolProgress && (
-                        <div className="flex items-center gap-1.5 text-xs text-white/50 mb-1.5">
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>
                           <Loader2 className="w-3 h-3 animate-spin" />
                           {msg.toolProgress}
                         </div>
                       )}
-                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      {msg.content}
                     </div>
                   </div>
                 ))}
 
-                {/* Thinking dots */}
+                {/* Thinking indicator */}
                 {loading && !messages[messages.length - 1]?.content && (
-                  <div className="flex justify-start animate-fade-in">
-                    <div className="mr-2 mt-1"><JarvisOrb state="thinking" size={26} /></div>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
+                    <div style={{ marginTop: 2, flexShrink: 0 }}>
+                      <JarvisOrb state="thinking" size={24} />
+                    </div>
                     <div
-                      className="rounded-2xl px-4 py-3"
                       style={{
-                        background: "rgba(255,255,255,0.07)",
-                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: 18,
                         borderBottomLeftRadius: 4,
+                        padding: "12px 16px",
+                        background: "rgba(255,255,255,0.07)",
+                        border: "1px solid rgba(255,255,255,0.10)",
                       }}
                     >
-                      <div className="flex gap-1.5 items-center">
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         {[0, 0.15, 0.3].map((d, i) => (
                           <div
                             key={i}
-                            className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce"
-                            style={{ animationDelay: `${d}s` }}
+                            className="animate-bounce"
+                            style={{
+                              width: 6, height: 6, borderRadius: "50%",
+                              background: "#a78bfa", animationDelay: `${d}s`,
+                            }}
                           />
                         ))}
                       </div>
@@ -386,15 +421,18 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Clear button */}
+                {/* Clear link */}
                 {hasMessages && (
-                  <button
-                    onClick={clearMessages}
-                    className="self-center text-xs text-white/25 hover:text-white/50 transition-colors mt-1"
-                  >
-                    Limpar conversa
-                  </button>
+                  <div style={{ textAlign: "center", paddingTop: 4, paddingBottom: 8 }}>
+                    <button
+                      onClick={clearMessages}
+                      style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}
+                    >
+                      Limpar conversa
+                    </button>
+                  </div>
                 )}
+
                 <div ref={messagesEndRef} />
               </div>
             )}
@@ -403,8 +441,9 @@ export default function Home() {
 
         {/* ── ALERTS TAB ── */}
         {activeTab === "alerts" && (
-          <div className="flex-1 overflow-y-auto scrollbar-hidden px-4 py-4 flex flex-col gap-3">
-            <h2 className="text-white font-bold text-lg mb-1">Notificações</h2>
+          <div className="absolute inset-0 overflow-y-auto scrollbar-hidden px-4 py-4" style={{ scrollbarWidth: "none" }}>
+            <h2 className="text-white font-bold text-lg mb-3">Notificações</h2>
+            <div className="flex flex-col gap-3">
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 mt-16 text-white/30">
                 <Bell className="w-12 h-12" />
@@ -418,8 +457,8 @@ export default function Home() {
                   <button
                     key={n.id}
                     onClick={() => markAsRead(n.id)}
-                    className="glass rounded-2xl p-4 text-left w-full transition-all active:scale-[0.98] animate-slide-up"
-                    style={{ opacity: n.read ? 0.5 : 1 }}
+                    className="glass rounded-2xl p-4 text-left w-full transition-all active:scale-[0.98]"
+                    style={{ opacity: n.read ? 0.5 : 1, display: "block" }}
                   >
                     <div className="flex items-start gap-3">
                       <div
@@ -442,12 +481,14 @@ export default function Home() {
                 );
               })
             )}
+            </div>{/* end inner gap container */}
           </div>
         )}
 
         {/* ── PROFILE TAB ── */}
         {activeTab === "profile" && (
-          <div className="flex-1 overflow-y-auto scrollbar-hidden px-4 py-6 flex flex-col gap-4">
+          <div className="absolute inset-0 overflow-y-auto scrollbar-hidden px-4 py-6" style={{ scrollbarWidth: "none" }}>
+            <div className="flex flex-col gap-4">
             {/* Avatar */}
             <div className="flex flex-col items-center gap-3 mb-2">
               <div
@@ -491,6 +532,7 @@ export default function Home() {
               <LogOut className="w-5 h-5 text-red-400" />
               <span className="text-red-400 font-medium text-sm">Sair</span>
             </button>
+            </div>{/* end inner flex-col gap-4 */}
           </div>
         )}
       </main>
