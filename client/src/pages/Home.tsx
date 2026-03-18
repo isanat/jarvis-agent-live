@@ -69,11 +69,11 @@ function VoiceWave({ bars = 7 }: { bars?: number }) {
 
 // ── Quick suggestion chips ────────────────────────────────────────────────────
 const SUGGESTIONS = [
-  { icon: "✈️", label: "Status do meu voo" },
-  { icon: "🌤️", label: "Clima no destino" },
-  { icon: "🏨", label: "Hotéis próximos" },
-  { icon: "📋", label: "Checklist de viagem" },
-];
+  { icon: "✈️", label: "Status do meu voo",   accent: "rgba(59,130,246,0.22)" },
+  { icon: "🌤️", label: "Clima no destino",    accent: "rgba(251,191,36,0.18)" },
+  { icon: "🏨", label: "Hotéis próximos",     accent: "rgba(167,139,250,0.22)" },
+  { icon: "📋", label: "Checklist de viagem", accent: "rgba(52,211,153,0.18)" },
+] as const;
 
 // ── Severity styles for notification items ───────────────────────────────────
 const SEV: Record<string, { color: string; Icon: typeof AlertTriangle }> = {
@@ -296,33 +296,107 @@ export default function Home() {
         {activeTab === "chat" && (
           <>
             {!hasMessages ? (
-              /* Welcome / empty state — absolute fill so it never overflows */
+              /* Welcome / empty state */
               <div
                 className="absolute inset-0 overflow-y-auto scrollbar-hidden"
                 style={{ scrollbarWidth: "none" }}
               >
-                <div className="flex flex-col items-center justify-center min-h-full px-6 gap-6 py-8">
-                  <div className="w-44 h-44 rounded-full overflow-hidden shrink-0">
+                <div className="flex flex-col items-center min-h-full">
+
+                  {/* ── Hero sphere — fills top half of screen ── */}
+                  <div
+                    className="relative w-full shrink-0"
+                    style={{ height: "min(50vh, 320px)" }}
+                  >
+                    {/* Glow halo beneath the sphere */}
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bottom-0 pointer-events-none"
+                      style={{
+                        width: "80%",
+                        height: "60%",
+                        background:
+                          agentState === "thinking" || agentState === "searching"
+                            ? "radial-gradient(ellipse, rgba(251,191,36,0.18) 0%, transparent 70%)"
+                            : agentState === "alert"
+                            ? "radial-gradient(ellipse, rgba(239,68,68,0.18) 0%, transparent 70%)"
+                            : "radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, rgba(59,130,246,0.12) 50%, transparent 75%)",
+                        filter: "blur(24px)",
+                        transition: "background 0.8s ease",
+                      }}
+                    />
+                    {/* Outer glow ring (CSS, not Three.js) */}
+                    <div
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+                      style={{
+                        width: "58%",
+                        aspectRatio: "1",
+                        border: "1px solid rgba(167,139,250,0.18)",
+                        boxShadow: "0 0 48px 12px rgba(124,58,237,0.12)",
+                      }}
+                    />
                     <NeuralSphere />
                   </div>
-                  <div className="text-center">
-                    <h2 className="text-2xl font-extrabold text-white tracking-tight">Jarvis Neural Agent</h2>
-                    <p className="text-white/50 text-sm mt-1">Seu concierge de viagens inteligente</p>
+
+                  {/* ── Title ── */}
+                  <div className="text-center px-6 pt-1 pb-5">
+                    <h2
+                      className="text-[1.65rem] font-extrabold tracking-tight leading-tight"
+                      style={{
+                        background: "linear-gradient(135deg, #fff 30%, rgba(167,139,250,0.95) 100%)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                      }}
+                    >
+                      Jarvis Neural Agent
+                    </h2>
+                    <p className="text-white/40 text-[13px] mt-1.5 tracking-wide">
+                      Seu concierge de viagens premium
+                    </p>
+                    {/* Status badge */}
+                    <div className="flex items-center justify-center gap-1.5 mt-3">
+                      <div
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full"
+                        style={{
+                          background: "rgba(52,211,153,0.12)",
+                          border: "1px solid rgba(52,211,153,0.2)",
+                        }}
+                      >
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-emerald-400 text-[11px] font-medium">Neural IA ativa</span>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Quick suggestions */}
-                  <div className="w-full max-w-xs grid grid-cols-2 gap-2">
+                  {/* ── Quick suggestions ── */}
+                  <div className="w-full px-4 grid grid-cols-2 gap-3 pb-6">
                     {SUGGESTIONS.map((s) => (
                       <button
                         key={s.label}
                         onClick={() => { setInputValue(s.label); inputRef.current?.focus(); }}
-                        className="glass rounded-2xl px-3 py-3 text-left transition-all active:scale-95"
+                        className="relative rounded-2xl p-4 text-left transition-all active:scale-95 overflow-hidden"
+                        style={{
+                          background: "rgba(255,255,255,0.045)",
+                          border: "1px solid rgba(255,255,255,0.09)",
+                          backdropFilter: "blur(16px)",
+                        }}
                       >
-                        <span className="text-lg">{s.icon}</span>
-                        <p className="text-white/80 text-xs mt-1 leading-tight">{s.label}</p>
+                        {/* Per-card colour splash */}
+                        <div
+                          className="absolute -top-4 -left-4 w-20 h-20 rounded-full pointer-events-none"
+                          style={{ background: s.accent, filter: "blur(16px)" }}
+                        />
+                        <span className="relative text-2xl">{s.icon}</span>
+                        <p className="relative text-white/80 text-[12px] mt-2 leading-snug font-medium">
+                          {s.label}
+                        </p>
                       </button>
                     ))}
                   </div>
+
+                  {/* Hint */}
+                  <p className="text-white/20 text-[11px] pb-4 tracking-wide">
+                    Toque em uma sugestão ou digite abaixo
+                  </p>
                 </div>
               </div>
             ) : (
