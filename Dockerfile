@@ -46,6 +46,7 @@ RUN npm install -g pnpm@9
 
 # Copy only production deps
 COPY package.json pnpm-lock.yaml ./
+COPY patches/ ./patches/
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy built artifacts
