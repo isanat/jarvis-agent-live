@@ -4,12 +4,12 @@ import { getFirestore } from 'firebase/firestore';
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBpKOu3z0Y8m_9LjYh5K5ZqX7fN0iJ3uWE",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAUyYulp5z_uIpDWys_6NRNLeDZkhVS39U",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "jarvistravelapp.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "jarvistravelapp",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "jarvistravelapp.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:abc123",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "jarvistravelapp.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "630076196109",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:630076196109:web:abc123",
 };
 
 // Initialize Firebase
