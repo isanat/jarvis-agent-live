@@ -12,6 +12,7 @@ import {
   Send, Mic, MicOff, Bell, BellRing, Plane, Settings,
   X, AlertTriangle, Info, LogOut, User, MessageCircle,
   Volume2, VolumeX, Loader2, ChevronRight, Sparkles, MapPin,
+  Home, Zap, ArrowLeft,
 } from "lucide-react";
 
 // ── Animated Orb (CSS-only, used when sphere is hidden) ──────────────────────
@@ -95,6 +96,8 @@ export default function Home() {
 
   const [inputValue, setInputValue] = useState("");
   const [activeTab, setActiveTab] = useState<"chat" | "trips" | "alerts" | "profile">("chat");
+  // chatMode=false → esfera home (padrão sempre); chatMode=true → tela de chat
+  const [chatMode, setChatMode] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -162,6 +165,7 @@ export default function Home() {
       if (!msg || loading) return;
       setInputValue("");
       cancelSpeech();
+      setChatMode(true); // entra no modo chat ao enviar
       try { await sendMessage(msg); }
       catch { toast.error("Falha ao enviar mensagem."); }
     },
@@ -186,7 +190,7 @@ export default function Home() {
 
   // ── Nav tabs ──
   const NAV = [
-    { key: "chat",    icon: MessageCircle, label: "Chat" },
+    { key: "chat",    icon: Home,          label: "Início" },
     { key: "trips",   icon: Plane,         label: "Viagens" },
     { key: "alerts",  icon: unreadCount > 0 ? BellRing : Bell, label: "Alertas", badge: unreadCount },
     { key: "profile", icon: User,          label: "Perfil" },
@@ -200,6 +204,7 @@ export default function Home() {
       markAllAsRead();
     } else {
       setActiveTab(key);
+      if (key === "chat") setChatMode(false); // voltar à esfera ao tocar em Início
     }
   };
 
@@ -294,75 +299,135 @@ export default function Home() {
       {/* position:relative wrapper so the absolute scroll child fills exactly this area */}
       <main className="flex-1 relative" style={{ minHeight: 0 }}>
 
-        {/* ── CHAT TAB ── always shows sphere at top, messages/suggestions below */}
+        {/* ── CHAT TAB ── */}
         {activeTab === "chat" && (
-          <div className="absolute inset-0 flex flex-col overflow-hidden">
-
-            {/* ── Neural Sphere — always visible, fixed height ── */}
-            <div
-              className="relative w-full shrink-0"
-              style={{ height: "min(44vh, 320px)" }}
-            >
-              {/* Glow halo */}
+          <>
+            {/* ══════════════════════════════════════════════════════
+                MODO HOME: esfera + feed proativo (padrão ao abrir)
+                Nunca mostra histórico de mensagens aqui.
+            ══════════════════════════════════════════════════════ */}
+            {!chatMode && (
               <div
-                className="absolute left-1/2 -translate-x-1/2 bottom-0 pointer-events-none"
-                style={{
-                  width: "80%", height: "60%",
-                  background:
-                    agentState === "thinking" || agentState === "searching"
-                      ? "radial-gradient(ellipse, rgba(251,191,36,0.18) 0%, transparent 70%)"
-                      : agentState === "alert"
-                      ? "radial-gradient(ellipse, rgba(239,68,68,0.18) 0%, transparent 70%)"
-                      : "radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, rgba(59,130,246,0.12) 50%, transparent 75%)",
-                  filter: "blur(24px)",
-                  transition: "background 0.8s ease",
-                }}
-              />
-              <div
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
-                style={{
-                  width: "55%", aspectRatio: "1",
-                  border: "1px solid rgba(167,139,250,0.18)",
-                  boxShadow: "0 0 48px 12px rgba(124,58,237,0.12)",
-                }}
-              />
-              <NeuralSphere />
+                className="absolute inset-0 overflow-y-auto scrollbar-hidden"
+                style={{ scrollbarWidth: "none" }}
+              >
+                <div className="flex flex-col items-center min-h-full">
 
-              {/* Title overlay at bottom of sphere */}
-              {!hasMessages && (
-                <div className="absolute bottom-0 left-0 right-0 text-center pb-3 pointer-events-none">
-                  <h2
-                    className="text-[1.4rem] font-extrabold tracking-tight leading-tight"
-                    style={{
-                      background: "linear-gradient(135deg, #fff 30%, rgba(167,139,250,0.95) 100%)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                    }}
+                  {/* Esfera principal */}
+                  <div
+                    className="relative w-full shrink-0"
+                    style={{ height: "min(56vh, 400px)" }}
                   >
-                    Flyisa Neural Agent
-                  </h2>
-                  <div className="flex items-center justify-center gap-1.5 mt-1.5">
-                    <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.2)" }}>
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-emerald-400 text-[10px] font-medium">Neural IA ativa</span>
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bottom-0 pointer-events-none"
+                      style={{
+                        width: "80%", height: "60%",
+                        background:
+                          agentState === "thinking" || agentState === "searching"
+                            ? "radial-gradient(ellipse, rgba(251,191,36,0.18) 0%, transparent 70%)"
+                            : agentState === "alert"
+                            ? "radial-gradient(ellipse, rgba(239,68,68,0.18) 0%, transparent 70%)"
+                            : "radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, rgba(59,130,246,0.12) 50%, transparent 75%)",
+                        filter: "blur(24px)",
+                        transition: "background 0.8s ease",
+                      }}
+                    />
+                    <div
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+                      style={{
+                        width: "58%", aspectRatio: "1",
+                        border: "1px solid rgba(167,139,250,0.18)",
+                        boxShadow: "0 0 48px 12px rgba(124,58,237,0.12)",
+                      }}
+                    />
+                    <NeuralSphere />
+                  </div>
+
+                  {/* Título */}
+                  <div className="text-center px-6 pt-1 pb-4">
+                    <h2
+                      className="text-[1.65rem] font-extrabold tracking-tight leading-tight"
+                      style={{
+                        background: "linear-gradient(135deg, #fff 30%, rgba(167,139,250,0.95) 100%)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                      }}
+                    >
+                      Flyisa Neural Agent
+                    </h2>
+                    <p className="text-white/40 text-[13px] mt-1.5 tracking-wide">
+                      Seu concierge de viagens premium
+                    </p>
+                    <div className="flex items-center justify-center gap-1.5 mt-3">
+                      <div
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full"
+                        style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.2)" }}
+                      >
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-emerald-400 text-[11px] font-medium">Neural IA ativa</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
 
-            {/* ── Scrollable area: messages or suggestions ── */}
-            <div
-              className="flex-1 overflow-y-auto scrollbar-hidden"
-              style={{ scrollbarWidth: "none" }}
-            >
-              {!hasMessages ? (
-                /* Quick suggestions */
-                <div className="px-4 pt-3 pb-4">
-                  <p className="text-white/25 text-[11px] text-center mb-3 tracking-wide">
-                    Toque em uma sugestão ou digite abaixo
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Cards proativos: aparecem quando há viagem ativa */}
+                  {activeTrip && (
+                    <div className="w-full px-4 mb-3 flex flex-col gap-2">
+                      <p className="text-white/30 text-[10px] uppercase tracking-widest mb-1 px-1">Proativo</p>
+
+                      <button
+                        onClick={() => {
+                          setInputValue(`Status da viagem para ${(activeTrip as any).destination || "meu destino"}`);
+                          setChatMode(true);
+                          setTimeout(() => handleSend(), 50);
+                        }}
+                        className="relative rounded-2xl px-4 py-3.5 text-left transition-all active:scale-[0.98] overflow-hidden w-full"
+                        style={{ background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)" }}
+                      >
+                        <div className="absolute -top-3 -left-3 w-16 h-16 rounded-full pointer-events-none" style={{ background: "rgba(124,58,237,0.2)", filter: "blur(12px)" }} />
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(124,58,237,0.3)" }}>
+                            <Zap className="w-4 h-4 text-violet-300" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-white/50 text-[10px] uppercase tracking-wider">Raio · Detectado</p>
+                            <p className="text-white text-[13px] font-semibold leading-snug">
+                              Viagem para {(activeTrip as any).destination || "destino"} ativa. Ver detalhes?
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+
+                      {hasMessages && (
+                        <button
+                          onClick={() => setChatMode(true)}
+                          className="rounded-2xl px-4 py-3 text-left transition-all active:scale-[0.98] w-full flex items-center gap-3"
+                          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                        >
+                          <MessageCircle className="w-4 h-4 text-white/40 shrink-0" />
+                          <p className="text-white/55 text-[13px]">Ver conversa anterior</p>
+                          <ArrowLeft className="w-3.5 h-3.5 text-white/25 ml-auto rotate-180" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Botão "ver conversa" quando não há viagem ativa mas há mensagens */}
+                  {!activeTrip && hasMessages && (
+                    <div className="w-full px-4 mb-3">
+                      <button
+                        onClick={() => setChatMode(true)}
+                        className="rounded-2xl px-4 py-3 text-left transition-all active:scale-[0.98] w-full flex items-center gap-3"
+                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                      >
+                        <MessageCircle className="w-4 h-4 text-white/40 shrink-0" />
+                        <p className="text-white/55 text-[13px]">Ver conversa anterior</p>
+                        <ArrowLeft className="w-3.5 h-3.5 text-white/25 ml-auto rotate-180" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Sugestões */}
+                  <div className="w-full px-4 grid grid-cols-2 gap-3 pb-6">
                     {SUGGESTIONS.map((s) => (
                       <button
                         key={s.label}
@@ -380,10 +445,54 @@ export default function Home() {
                       </button>
                     ))}
                   </div>
+
+                  <p className="text-white/20 text-[11px] pb-4 tracking-wide">
+                    Toque em uma sugestão ou digite abaixo
+                  </p>
                 </div>
-              ) : (
-                /* Chat messages */
-                <div className="px-4 pt-3 pb-2">
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                MODO CHAT: histórico de mensagens (tela separada)
+            ══════════════════════════════════════════════════════ */}
+            {chatMode && (
+              <div className="absolute inset-0 flex flex-col">
+                {/* Cabeçalho do chat com botão voltar */}
+                <div
+                  className="shrink-0 flex items-center gap-3 px-4 py-3"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+                >
+                  <button
+                    onClick={() => setChatMode(false)}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90"
+                    style={{ background: "rgba(255,255,255,0.07)" }}
+                  >
+                    <ArrowLeft className="w-4 h-4 text-white/70" />
+                  </button>
+                  <div className="flex items-center gap-2.5 flex-1">
+                    <FlyisaOrb state={sphereState} size={28} />
+                    <div>
+                      <p className="text-white font-semibold text-sm leading-tight">Flyisa</p>
+                      {loading ? (
+                        <p className="text-amber-400 text-[10px]">{agentPhase || "Pensando..."}</p>
+                      ) : (
+                        <p className="text-emerald-400 text-[10px]">Neural IA ativa</p>
+                      )}
+                    </div>
+                  </div>
+                  {hasMessages && (
+                    <button onClick={clearMessages} className="text-[11px] text-white/20 px-2">
+                      Limpar
+                    </button>
+                  )}
+                </div>
+
+                {/* Mensagens */}
+                <div
+                  className="flex-1 overflow-y-auto scrollbar-hidden px-4 pt-3 pb-2"
+                  style={{ scrollbarWidth: "none" }}
+                >
                   {messages.map((msg, idx) => (
                     <div
                       key={idx}
@@ -425,7 +534,7 @@ export default function Home() {
                     </div>
                   ))}
 
-                  {/* Thinking indicator */}
+                  {/* Indicador de digitação */}
                   {loading && !messages[messages.length - 1]?.content && (
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
                       <div style={{ marginTop: 2, flexShrink: 0 }}><FlyisaOrb state="thinking" size={24} /></div>
@@ -439,18 +548,11 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Clear link */}
-                  <div style={{ textAlign: "center", paddingTop: 4, paddingBottom: 8 }}>
-                    <button onClick={clearMessages} style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
-                      Limpar conversa
-                    </button>
-                  </div>
-
                   <div ref={messagesEndRef} />
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* ── ALERTS TAB ── */}
