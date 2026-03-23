@@ -5,6 +5,7 @@ import Login from "@/pages/Login";
 import Home from "@/pages/Home";
 import TripsPage from "@/pages/TripsPage";
 import TripDetailPage from "@/pages/TripDetailPage";
+import DocumentsPage from "@/pages/DocumentsPage";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -40,6 +41,11 @@ function Router() {
       <Route path="/trips">
         <PrivateRoute>
           <TripsPage />
+        </PrivateRoute>
+      </Route>
+      <Route path="/trips/:id/documents">
+        <PrivateRoute>
+          <DocumentsPage />
         </PrivateRoute>
       </Route>
       <Route path="/trips/:id">
