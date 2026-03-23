@@ -294,83 +294,75 @@ export default function Home() {
       {/* position:relative wrapper so the absolute scroll child fills exactly this area */}
       <main className="flex-1 relative" style={{ minHeight: 0 }}>
 
-        {/* ── CHAT TAB ── */}
+        {/* ── CHAT TAB ── always shows sphere at top, messages/suggestions below */}
         {activeTab === "chat" && (
-          <>
-            {!hasMessages ? (
-              /* Welcome / empty state */
+          <div className="absolute inset-0 flex flex-col overflow-hidden">
+
+            {/* ── Neural Sphere — always visible, fixed height ── */}
+            <div
+              className="relative w-full shrink-0"
+              style={{ height: "min(44vh, 320px)" }}
+            >
+              {/* Glow halo */}
               <div
-                className="absolute inset-0 overflow-y-auto scrollbar-hidden"
-                style={{ scrollbarWidth: "none" }}
-              >
-                <div className="flex flex-col items-center min-h-full">
+                className="absolute left-1/2 -translate-x-1/2 bottom-0 pointer-events-none"
+                style={{
+                  width: "80%", height: "60%",
+                  background:
+                    agentState === "thinking" || agentState === "searching"
+                      ? "radial-gradient(ellipse, rgba(251,191,36,0.18) 0%, transparent 70%)"
+                      : agentState === "alert"
+                      ? "radial-gradient(ellipse, rgba(239,68,68,0.18) 0%, transparent 70%)"
+                      : "radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, rgba(59,130,246,0.12) 50%, transparent 75%)",
+                  filter: "blur(24px)",
+                  transition: "background 0.8s ease",
+                }}
+              />
+              <div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+                style={{
+                  width: "55%", aspectRatio: "1",
+                  border: "1px solid rgba(167,139,250,0.18)",
+                  boxShadow: "0 0 48px 12px rgba(124,58,237,0.12)",
+                }}
+              />
+              <NeuralSphere />
 
-                  {/* ── Hero sphere — fills top half of screen ── */}
-                  <div
-                    className="relative w-full shrink-0"
-                    style={{ height: "min(56vh, 400px)" }}
+              {/* Title overlay at bottom of sphere */}
+              {!hasMessages && (
+                <div className="absolute bottom-0 left-0 right-0 text-center pb-3 pointer-events-none">
+                  <h2
+                    className="text-[1.4rem] font-extrabold tracking-tight leading-tight"
+                    style={{
+                      background: "linear-gradient(135deg, #fff 30%, rgba(167,139,250,0.95) 100%)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}
                   >
-                    {/* Glow halo beneath the sphere */}
-                    <div
-                      className="absolute left-1/2 -translate-x-1/2 bottom-0 pointer-events-none"
-                      style={{
-                        width: "80%",
-                        height: "60%",
-                        background:
-                          agentState === "thinking" || agentState === "searching"
-                            ? "radial-gradient(ellipse, rgba(251,191,36,0.18) 0%, transparent 70%)"
-                            : agentState === "alert"
-                            ? "radial-gradient(ellipse, rgba(239,68,68,0.18) 0%, transparent 70%)"
-                            : "radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, rgba(59,130,246,0.12) 50%, transparent 75%)",
-                        filter: "blur(24px)",
-                        transition: "background 0.8s ease",
-                      }}
-                    />
-                    {/* Outer glow ring (CSS, not Three.js) */}
-                    <div
-                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
-                      style={{
-                        width: "58%",
-                        aspectRatio: "1",
-                        border: "1px solid rgba(167,139,250,0.18)",
-                        boxShadow: "0 0 48px 12px rgba(124,58,237,0.12)",
-                      }}
-                    />
-                    <NeuralSphere />
-                  </div>
-
-                  {/* ── Title ── */}
-                  <div className="text-center px-6 pt-1 pb-5">
-                    <h2
-                      className="text-[1.65rem] font-extrabold tracking-tight leading-tight"
-                      style={{
-                        background: "linear-gradient(135deg, #fff 30%, rgba(167,139,250,0.95) 100%)",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                      }}
-                    >
-                      Flyisa Neural Agent
-                    </h2>
-                    <p className="text-white/40 text-[13px] mt-1.5 tracking-wide">
-                      Seu concierge de viagens premium
-                    </p>
-                    {/* Status badge */}
-                    <div className="flex items-center justify-center gap-1.5 mt-3">
-                      <div
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-full"
-                        style={{
-                          background: "rgba(52,211,153,0.12)",
-                          border: "1px solid rgba(52,211,153,0.2)",
-                        }}
-                      >
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-emerald-400 text-[11px] font-medium">Neural IA ativa</span>
-                      </div>
+                    Flyisa Neural Agent
+                  </h2>
+                  <div className="flex items-center justify-center gap-1.5 mt-1.5">
+                    <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.2)" }}>
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-emerald-400 text-[10px] font-medium">Neural IA ativa</span>
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
 
-                  {/* ── Quick suggestions ── */}
-                  <div className="w-full px-4 grid grid-cols-2 gap-3 pb-6">
+            {/* ── Scrollable area: messages or suggestions ── */}
+            <div
+              className="flex-1 overflow-y-auto scrollbar-hidden"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {!hasMessages ? (
+                /* Quick suggestions */
+                <div className="px-4 pt-3 pb-4">
+                  <p className="text-white/25 text-[11px] text-center mb-3 tracking-wide">
+                    Toque em uma sugestão ou digite abaixo
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
                     {SUGGESTIONS.map((s) => (
                       <button
                         key={s.label}
@@ -382,137 +374,83 @@ export default function Home() {
                           backdropFilter: "blur(16px)",
                         }}
                       >
-                        {/* Per-card colour splash */}
-                        <div
-                          className="absolute -top-4 -left-4 w-20 h-20 rounded-full pointer-events-none"
-                          style={{ background: s.accent, filter: "blur(16px)" }}
-                        />
+                        <div className="absolute -top-4 -left-4 w-20 h-20 rounded-full pointer-events-none" style={{ background: s.accent, filter: "blur(16px)" }} />
                         <span className="relative text-2xl">{s.icon}</span>
-                        <p className="relative text-white/80 text-[12px] mt-2 leading-snug font-medium">
-                          {s.label}
-                        </p>
+                        <p className="relative text-white/80 text-[12px] mt-2 leading-snug font-medium">{s.label}</p>
                       </button>
                     ))}
                   </div>
-
-                  {/* Hint */}
-                  <p className="text-white/20 text-[11px] pb-4 tracking-wide">
-                    Toque em uma sugestão ou digite abaixo
-                  </p>
                 </div>
-              </div>
-            ) : (
-              /* ── Chat messages — absolute fill guarantees scroll always works ── */
-              <div
-                className="absolute inset-0 overflow-y-auto scrollbar-hidden px-4 pt-3 pb-2"
-                style={{ scrollbarWidth: "none" }}
-              >
-                {/* Block-layout stack — no flex-col, so messages never collapse */}
-                {messages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                      alignItems: "flex-start",
-                      marginBottom: 12,
-                      gap: 8,
-                    }}
-                  >
-                    {/* Jarvis avatar */}
-                    {msg.role === "assistant" && (
-                      <div style={{ marginTop: 2, flexShrink: 0 }}>
-                        <FlyisaOrb
-                          state={loading && idx === messages.length - 1 ? sphereState : "idle"}
-                          size={24}
-                        />
-                      </div>
-                    )}
-
-                    {/* Bubble */}
+              ) : (
+                /* Chat messages */
+                <div className="px-4 pt-3 pb-2">
+                  {messages.map((msg, idx) => (
                     <div
+                      key={idx}
                       style={{
-                        maxWidth: "76%",
-                        borderRadius: 18,
-                        padding: "10px 14px",
-                        fontSize: 14,
-                        lineHeight: 1.55,
-                        wordBreak: "break-word",
-                        whiteSpace: "pre-wrap",
-                        ...(msg.role === "user"
-                          ? {
-                              background: "linear-gradient(135deg,#7c3aed,#3b82f6)",
-                              color: "#fff",
-                              borderBottomRightRadius: 4,
-                            }
-                          : {
-                              background: "rgba(255,255,255,0.07)",
-                              backdropFilter: "blur(12px)",
-                              WebkitBackdropFilter: "blur(12px)",
-                              border: "1px solid rgba(255,255,255,0.10)",
-                              color: "rgba(255,255,255,0.92)",
-                              borderBottomLeftRadius: 4,
-                            }),
+                        display: "flex",
+                        justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+                        alignItems: "flex-start",
+                        marginBottom: 12,
+                        gap: 8,
                       }}
                     >
-                      {msg.toolProgress && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          {msg.toolProgress}
+                      {msg.role === "assistant" && (
+                        <div style={{ marginTop: 2, flexShrink: 0 }}>
+                          <FlyisaOrb state={loading && idx === messages.length - 1 ? sphereState : "idle"} size={24} />
                         </div>
                       )}
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Thinking indicator */}
-                {loading && !messages[messages.length - 1]?.content && (
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
-                    <div style={{ marginTop: 2, flexShrink: 0 }}>
-                      <FlyisaOrb state="thinking" size={24} />
-                    </div>
-                    <div
-                      style={{
-                        borderRadius: 18,
-                        borderBottomLeftRadius: 4,
-                        padding: "12px 16px",
-                        background: "rgba(255,255,255,0.07)",
-                        border: "1px solid rgba(255,255,255,0.10)",
-                      }}
-                    >
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        {[0, 0.15, 0.3].map((d, i) => (
-                          <div
-                            key={i}
-                            className="animate-bounce"
-                            style={{
-                              width: 6, height: 6, borderRadius: "50%",
-                              background: "#a78bfa", animationDelay: `${d}s`,
-                            }}
-                          />
-                        ))}
+                      <div
+                        style={{
+                          maxWidth: "76%",
+                          borderRadius: 18,
+                          padding: "10px 14px",
+                          fontSize: 14,
+                          lineHeight: 1.55,
+                          wordBreak: "break-word",
+                          whiteSpace: "pre-wrap",
+                          ...(msg.role === "user"
+                            ? { background: "linear-gradient(135deg,#7c3aed,#3b82f6)", color: "#fff", borderBottomRightRadius: 4 }
+                            : { background: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.92)", borderBottomLeftRadius: 4 }),
+                        }}
+                      >
+                        {msg.toolProgress && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            {msg.toolProgress}
+                          </div>
+                        )}
+                        {msg.content}
                       </div>
                     </div>
-                  </div>
-                )}
+                  ))}
 
-                {/* Clear link */}
-                {hasMessages && (
+                  {/* Thinking indicator */}
+                  {loading && !messages[messages.length - 1]?.content && (
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
+                      <div style={{ marginTop: 2, flexShrink: 0 }}><FlyisaOrb state="thinking" size={24} /></div>
+                      <div style={{ borderRadius: 18, borderBottomLeftRadius: 4, padding: "12px 16px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.10)" }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          {[0, 0.15, 0.3].map((d, i) => (
+                            <div key={i} className="animate-bounce" style={{ width: 6, height: 6, borderRadius: "50%", background: "#a78bfa", animationDelay: `${d}s` }} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Clear link */}
                   <div style={{ textAlign: "center", paddingTop: 4, paddingBottom: 8 }}>
-                    <button
-                      onClick={clearMessages}
-                      style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}
-                    >
+                    <button onClick={clearMessages} style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
                       Limpar conversa
                     </button>
                   </div>
-                )}
 
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-          </>
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* ── ALERTS TAB ── */}
