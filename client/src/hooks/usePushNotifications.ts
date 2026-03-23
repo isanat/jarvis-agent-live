@@ -28,10 +28,16 @@ export function usePushNotifications(userId: string | null | undefined) {
       if (permission !== 'granted') return;
 
       try {
+        // Register (or get existing) the FCM service worker
+        const swRegistration = await navigator.serviceWorker.register(
+          '/firebase-messaging-sw.js',
+          { scope: '/' }
+        );
+
         // Get FCM token (requires VAPID key for web push)
         const token = await getToken(messaging, {
           vapidKey: VAPID_KEY || undefined,
-          serviceWorkerRegistration: await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js'),
+          serviceWorkerRegistration: swRegistration,
         });
 
         if (!token) return;
