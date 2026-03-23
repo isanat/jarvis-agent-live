@@ -22,6 +22,8 @@ interface UseChatAPIReturn {
   error: string | null;
   sendMessage: (message: string, tripContext?: object | null) => Promise<void>;
   clearMessages: () => void;
+  /** Injeta mensagem da Flyisa sem usuário pedir (feed proativo) */
+  injectAssistantMessage: (content: string) => void;
   location: UserLocation | null;
   activeTrip: object | null;    // Most imminent upcoming/active trip
 }
@@ -341,5 +343,13 @@ export function useChatAPI(): UseChatAPIReturn {
     }
   }, [user]);
 
-  return { messages, loading, agentPhase, error, sendMessage, clearMessages, location, activeTrip };
+  // Injeta mensagem da Flyisa sem o usuário ter pedido (feed proativo)
+  const injectAssistantMessage = useCallback((content: string) => {
+    setMessages((prev) => {
+      if (prev.some((m) => m.role === 'assistant' && m.content === content)) return prev;
+      return [...prev, { role: 'assistant', content }];
+    });
+  }, []);
+
+  return { messages, loading, agentPhase, error, sendMessage, clearMessages, injectAssistantMessage, location, activeTrip };
 }

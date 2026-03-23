@@ -7,6 +7,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useVoice } from "@/hooks/useVoice";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { NeuralSphere } from "@/components/NeuralSphere";
+import { useProactiveFeed, type ProactiveCard } from "@/hooks/useProactiveFeed";
 import { toast } from "sonner";
 import {
   Send, Mic, MicOff, Bell, BellRing, Plane, Settings,
@@ -69,6 +70,55 @@ function VoiceWave({ bars = 7 }: { bars?: number }) {
   );
 }
 
+// ── Proactive card component ──────────────────────────────────────────────────
+function ProactiveCardItem({
+  card,
+  onTap,
+}: {
+  card: ProactiveCard;
+  onTap: (query: string) => void;
+}) {
+  // Cards de alta prioridade (1-2) têm borda colorida
+  const isUrgent = card.priority <= 2;
+
+  return (
+    <button
+      onClick={() => card.query && onTap(card.query)}
+      className="relative rounded-2xl px-4 py-3.5 text-left transition-all active:scale-[0.98] overflow-hidden w-full"
+      style={{
+        background: card.accent,
+        border: `1px solid ${isUrgent ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.08)"}`,
+      }}
+    >
+      {/* Splash de cor */}
+      <div
+        className="absolute -top-4 -right-4 w-20 h-20 rounded-full pointer-events-none"
+        style={{ background: card.accent, filter: "blur(20px)", opacity: 0.7 }}
+      />
+      <div className="relative flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xl"
+          style={{ background: "rgba(0,0,0,0.2)" }}
+        >
+          {card.icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          {isUrgent && (
+            <p className="text-violet-400/80 text-[9px] uppercase tracking-wider font-bold mb-0.5">
+              {card.type === "flight_imminent" ? "⚡ Urgente" :
+               card.type === "trip_end" ? "✅ Encerrar viagem" :
+               card.type === "arrived" ? "📍 Chegada" : "🔔 Proativo"}
+            </p>
+          )}
+          <p className="text-white font-semibold text-[13px] leading-snug">{card.title}</p>
+          <p className="text-white/50 text-[11px] mt-0.5 leading-snug">{card.subtitle}</p>
+        </div>
+        <ArrowLeft className="w-3.5 h-3.5 text-white/20 shrink-0 rotate-180" />
+      </div>
+    </button>
+  );
+}
+
 // ── Quick suggestion chips ────────────────────────────────────────────────────
 const SUGGESTIONS = [
   { icon: "✈️", label: "Status do meu voo",   accent: "rgba(59,130,246,0.22)" },
@@ -90,7 +140,7 @@ export default function Home() {
   const { user, logout } = useAuth();
   const { setAgentState, agentState } = useNeuralSphere();
   const [, setLocation] = useLocation();
-  const { messages, loading, agentPhase, sendMessage, clearMessages, activeTrip } = useChatAPI();
+  const { messages, loading, agentPhase, sendMessage, clearMessages, injectAssistantMessage, activeTrip } = useChatAPI();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user?.uid);
   usePushNotifications(user?.uid);
 
@@ -187,6 +237,27 @@ export default function Home() {
 
   const hasMessages = messages.length > 0;
   const sphereState = agentState || "idle";
+
+  // ── Feed proativo ──
+  const { cards: proactiveCards, greeting, hasNewGreeting, markGreetingRead } =
+    useProactiveFeed(user?.uid, activeTrip as Record<string, any> | null);
+
+  // Quando a Flyisa tem uma saudação nova → injeta no chat automaticamente (uma vez)
+  useEffect(() => {
+    if (!greeting || !hasNewGreeting) return;
+    injectAssistantMessage(greeting.message);
+    markGreetingRead();
+    // Se urgente (voo próximo, viagem terminando) → abre o chat direto
+    if (greeting.urgent) {
+      setChatMode(true);
+      toast(greeting.message.slice(0, 60) + "…", {
+        description: "Flyisa tem algo importante para você",
+        duration: 6000,
+        action: { label: "Ver", onClick: () => setChatMode(true) },
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [greeting, hasNewGreeting]);
 
   // ── Nav tabs ──
   const NAV = [
@@ -369,85 +440,88 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Cards proativos: aparecem quando há viagem ativa */}
-                  {activeTrip && (
-                    <div className="w-full px-4 mb-3 flex flex-col gap-2">
-                      <p className="text-white/30 text-[10px] uppercase tracking-widest mb-1 px-1">Proativo</p>
+                  {/* ── FEED PROATIVO: cards gerados pela Flyisa ── */}
+                  {proactiveCards.length > 0 ? (
+                    <div className="w-full px-4 mb-2">
+                      {/* Badge "Flyisa escaneou" */}
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <Zap className="w-3 h-3 text-violet-400" />
+                        <p className="text-violet-400/70 text-[10px] uppercase tracking-widest font-semibold">
+                          Flyisa · Feed Proativo
+                        </p>
+                        {hasNewGreeting && (
+                          <span className="ml-auto w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        )}
+                      </div>
 
-                      <button
-                        onClick={() => {
-                          setInputValue(`Status da viagem para ${(activeTrip as any).destination || "meu destino"}`);
-                          setChatMode(true);
-                          setTimeout(() => handleSend(), 50);
-                        }}
-                        className="relative rounded-2xl px-4 py-3.5 text-left transition-all active:scale-[0.98] overflow-hidden w-full"
-                        style={{ background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)" }}
-                      >
-                        <div className="absolute -top-3 -left-3 w-16 h-16 rounded-full pointer-events-none" style={{ background: "rgba(124,58,237,0.2)", filter: "blur(12px)" }} />
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(124,58,237,0.3)" }}>
-                            <Zap className="w-4 h-4 text-violet-300" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-white/50 text-[10px] uppercase tracking-wider">Raio · Detectado</p>
-                            <p className="text-white text-[13px] font-semibold leading-snug">
-                              Viagem para {(activeTrip as any).destination || "destino"} ativa. Ver detalhes?
-                            </p>
-                          </div>
-                        </div>
-                      </button>
+                      {/* Cards proativos em coluna */}
+                      <div className="flex flex-col gap-2.5">
+                        {proactiveCards.map((card) => (
+                          <ProactiveCardItem
+                            key={card.id}
+                            card={card}
+                            onTap={(query) => {
+                              setInputValue(query);
+                              setChatMode(true);
+                              // Envia após pequeno delay para o input ser setado
+                              setTimeout(() => {
+                                if (query) {
+                                  setInputValue("");
+                                  setChatMode(true);
+                                  sendMessage(query).catch(() => {});
+                                }
+                              }, 80);
+                            }}
+                          />
+                        ))}
+                      </div>
 
-                      {hasMessages && (
+                      {/* Separador */}
+                      <div className="mt-4 mb-3 flex items-center gap-3">
+                        <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                        <p className="text-white/20 text-[10px]">ou pergunte</p>
+                        <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                      </div>
+                    </div>
+                  ) : (
+                    /* Sem viagem: sugestões padrão em grid 2x2 */
+                    <div className="w-full px-4 grid grid-cols-2 gap-3 mb-4">
+                      {SUGGESTIONS.map((s) => (
                         <button
-                          onClick={() => setChatMode(true)}
-                          className="rounded-2xl px-4 py-3 text-left transition-all active:scale-[0.98] w-full flex items-center gap-3"
-                          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                          key={s.label}
+                          onClick={() => { setInputValue(s.label); inputRef.current?.focus(); }}
+                          className="relative rounded-2xl p-4 text-left transition-all active:scale-95 overflow-hidden"
+                          style={{
+                            background: "rgba(255,255,255,0.045)",
+                            border: "1px solid rgba(255,255,255,0.09)",
+                            backdropFilter: "blur(16px)",
+                          }}
                         >
-                          <MessageCircle className="w-4 h-4 text-white/40 shrink-0" />
-                          <p className="text-white/55 text-[13px]">Ver conversa anterior</p>
-                          <ArrowLeft className="w-3.5 h-3.5 text-white/25 ml-auto rotate-180" />
+                          <div className="absolute -top-4 -left-4 w-20 h-20 rounded-full pointer-events-none" style={{ background: s.accent, filter: "blur(16px)" }} />
+                          <span className="relative text-2xl">{s.icon}</span>
+                          <p className="relative text-white/80 text-[12px] mt-2 leading-snug font-medium">{s.label}</p>
                         </button>
-                      )}
+                      ))}
                     </div>
                   )}
 
-                  {/* Botão "ver conversa" quando não há viagem ativa mas há mensagens */}
-                  {!activeTrip && hasMessages && (
-                    <div className="w-full px-4 mb-3">
+                  {/* Botão "ver conversa" quando há mensagens */}
+                  {hasMessages && (
+                    <div className="w-full px-4 mb-4">
                       <button
                         onClick={() => setChatMode(true)}
                         className="rounded-2xl px-4 py-3 text-left transition-all active:scale-[0.98] w-full flex items-center gap-3"
                         style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                       >
                         <MessageCircle className="w-4 h-4 text-white/40 shrink-0" />
-                        <p className="text-white/55 text-[13px]">Ver conversa anterior</p>
+                        <p className="text-white/55 text-[13px]">Ver conversa com Flyisa</p>
                         <ArrowLeft className="w-3.5 h-3.5 text-white/25 ml-auto rotate-180" />
                       </button>
                     </div>
                   )}
 
-                  {/* Sugestões */}
-                  <div className="w-full px-4 grid grid-cols-2 gap-3 pb-6">
-                    {SUGGESTIONS.map((s) => (
-                      <button
-                        key={s.label}
-                        onClick={() => { setInputValue(s.label); inputRef.current?.focus(); }}
-                        className="relative rounded-2xl p-4 text-left transition-all active:scale-95 overflow-hidden"
-                        style={{
-                          background: "rgba(255,255,255,0.045)",
-                          border: "1px solid rgba(255,255,255,0.09)",
-                          backdropFilter: "blur(16px)",
-                        }}
-                      >
-                        <div className="absolute -top-4 -left-4 w-20 h-20 rounded-full pointer-events-none" style={{ background: s.accent, filter: "blur(16px)" }} />
-                        <span className="relative text-2xl">{s.icon}</span>
-                        <p className="relative text-white/80 text-[12px] mt-2 leading-snug font-medium">{s.label}</p>
-                      </button>
-                    ))}
-                  </div>
-
-                  <p className="text-white/20 text-[11px] pb-4 tracking-wide">
-                    Toque em uma sugestão ou digite abaixo
+                  <p className="text-white/20 text-[11px] pb-5 tracking-wide">
+                    Toque em um card ou pergunte abaixo
                   </p>
                 </div>
               </div>
