@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -21,6 +23,7 @@ interface UseChatAPIReturn {
   sendMessage: (message: string, tripContext?: object | null) => Promise<void>;
   clearMessages: () => void;
   location: UserLocation | null;
+  activeTrip: object | null;    // Most imminent upcoming/active trip
 }
 
 export function useChatAPI(): UseChatAPIReturn {
@@ -30,7 +33,73 @@ export function useChatAPI(): UseChatAPIReturn {
   const [agentPhase, setAgentPhase] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [location, setLocation] = useState<UserLocation | null>(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [activeTrip, setActiveTrip] = useState<object | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // ── Load chat history from Firestore on mount ──
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'chats', user.uid));
+        if (snap.exists()) {
+          const data = snap.data() as { messages?: ChatMessage[] };
+          if (Array.isArray(data.messages) && data.messages.length > 0) {
+            // Strip runtime-only fields before restoring
+            setMessages(data.messages.map(({ role, content }) => ({ role, content })));
+          }
+        }
+      } catch {
+        // Silently ignore — user will start fresh
+      } finally {
+        setHistoryLoaded(true);
+      }
+    };
+    load();
+  }, [user]);
+
+  // ── Save messages to Firestore whenever they change ──
+  useEffect(() => {
+    if (!user || !historyLoaded || messages.length === 0) return;
+    const save = async () => {
+      try {
+        const clean = messages.map(({ role, content }) => ({ role, content }));
+        await setDoc(
+          doc(db, 'chats', user.uid),
+          { userId: user.uid, messages: clean, updatedAt: serverTimestamp() },
+          { merge: true },
+        );
+      } catch {
+        // Silently ignore save errors
+      }
+    };
+    save();
+  }, [messages, user, historyLoaded]);
+
+  // ── Auto-load most imminent upcoming/active trip ──
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, 'trips'),
+      where('userId', '==', user.uid),
+      where('status', 'in', ['active', 'upcoming']),
+      orderBy('departureDate', 'asc'),
+      limit(1),
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      if (!snap.empty) {
+        const d = snap.docs[0];
+        setActiveTrip({ id: d.id, ...d.data() });
+      } else {
+        setActiveTrip(null);
+      }
+    });
+
+    return () => unsub();
+  }, [user]);
 
   // Request GPS on mount — high accuracy so mobile uses real GPS, not IP
   useEffect(() => {
@@ -61,6 +130,8 @@ export function useChatAPI(): UseChatAPIReturn {
   }, []);
 
   const sendMessage = useCallback(async (userMessage: string, tripContext: object | null = null) => {
+    // Use explicit tripContext if provided, otherwise fall back to the auto-loaded active trip
+    const resolvedTrip = tripContext ?? activeTrip;
     if (!userMessage.trim()) return;
 
     // Add user message immediately
@@ -88,7 +159,7 @@ export function useChatAPI(): UseChatAPIReturn {
           userId: user?.uid ?? null,
           userName: user?.displayName ?? user?.email ?? null,
           location,
-          ...(tripContext && { trip: tripContext }),
+          ...(resolvedTrip && { trip: resolvedTrip }),
         }),
         signal: abortRef.current.signal,
       });
@@ -226,14 +297,21 @@ export function useChatAPI(): UseChatAPIReturn {
       setLoading(false);
       setAgentPhase(null);
     }
-  }, [messages, user, location]);
+  }, [messages, user, location, activeTrip]);
 
   const clearMessages = useCallback(() => {
     abortRef.current?.abort();
     setMessages([]);
     setError(null);
     setAgentPhase(null);
-  }, []);
+    if (user) {
+      setDoc(
+        doc(db, 'chats', user.uid),
+        { userId: user.uid, messages: [], updatedAt: serverTimestamp() },
+        { merge: true },
+      ).catch(() => {});
+    }
+  }, [user]);
 
-  return { messages, loading, agentPhase, error, sendMessage, clearMessages, location };
+  return { messages, loading, agentPhase, error, sendMessage, clearMessages, location, activeTrip };
 }
