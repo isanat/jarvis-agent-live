@@ -89,14 +89,42 @@ export function useChatAPI(): UseChatAPIReturn {
       limit(1),
     );
 
-    const unsub = onSnapshot(q, (snap) => {
-      if (!snap.empty) {
-        const d = snap.docs[0];
-        setActiveTrip({ id: d.id, ...d.data() });
-      } else {
-        setActiveTrip(null);
-      }
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        if (!snap.empty) {
+          const d = snap.docs[0];
+          setActiveTrip({ id: d.id, ...d.data() });
+        } else {
+          setActiveTrip(null);
+        }
+      },
+      (err) => {
+        // Index may not exist yet — fall back to simpler query without orderBy
+        console.warn('[useChatAPI] trips query failed, using fallback:', err.message);
+        const fallback = query(
+          collection(db, 'trips'),
+          where('userId', '==', user.uid),
+          where('status', 'in', ['active', 'upcoming']),
+          limit(5),
+        );
+        onSnapshot(fallback, (snap) => {
+          if (!snap.empty) {
+            // Sort client-side
+            const sorted = snap.docs
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .sort((a: any, b: any) => {
+                const da = a.departureDate || '';
+                const db_ = b.departureDate || '';
+                return da < db_ ? -1 : da > db_ ? 1 : 0;
+              });
+            setActiveTrip(sorted[0]);
+          } else {
+            setActiveTrip(null);
+          }
+        });
+      },
+    );
 
     return () => unsub();
   }, [user]);

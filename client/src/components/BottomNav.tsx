@@ -5,11 +5,11 @@ import { cn } from "@/lib/utils";
 export type NavTab = "feed" | "map" | "suggestions" | "trips" | "chat";
 
 const NAV_ITEMS: { key: NavTab; icon: React.ComponentType<{ className?: string }>; label: string; path: string }[] = [
-  { key: "feed",        icon: Rss,          label: "Feed",       path: "/feed" },
+  { key: "feed",        icon: Rss,          label: "Feed",       path: "/" },
   { key: "map",         icon: Map,          label: "Mapa",       path: "/map" },
   { key: "suggestions", icon: Sparkles,     label: "Sugestões",  path: "/experiences" },
   { key: "trips",       icon: CalendarDays, label: "Reservas",   path: "/trips" },
-  { key: "chat",        icon: MessageCircle,label: "Chat",       path: "/" },
+  { key: "chat",        icon: MessageCircle,label: "Chat",       path: "/chat" },
 ];
 
 interface BottomNavProps {

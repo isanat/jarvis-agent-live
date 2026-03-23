@@ -35,17 +35,17 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
 
-      {/* Root: home (chat) */}
+      {/* Root: smart feed (main screen) */}
       <Route path="/">
-        {user ? <Home /> : <Login />}
+        {user ? <FeedPage /> : <Login />}
       </Route>
-      <Route path="/chat">
-        <PrivateRoute><Home /></PrivateRoute>
-      </Route>
-
-      {/* Smart feed */}
       <Route path="/feed">
         <PrivateRoute><FeedPage /></PrivateRoute>
+      </Route>
+
+      {/* Chat — opens via FAB or nav */}
+      <Route path="/chat">
+        <PrivateRoute><Home /></PrivateRoute>
       </Route>
 
       {/* Experiences / nearby places */}
