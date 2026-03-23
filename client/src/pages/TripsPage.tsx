@@ -83,7 +83,7 @@ export default function TripsPage() {
           <div className="text-center py-16 text-muted-foreground space-y-3">
             <Plane className="w-12 h-12 mx-auto opacity-30" />
             <p>Nenhuma viagem cadastrada</p>
-            <p className="text-xs">Envie documentos de viagem para o Jarvis para começar</p>
+            <p className="text-xs">Envie documentos de viagem para o Flyisa para começar</p>
           </div>
         ) : (
           trips.map((trip) => {

@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-export interface JarvisNotification {
+export interface FlyisaNotification {
   id: string;
   userId: string;
   tripId?: string;
@@ -26,7 +26,7 @@ export interface JarvisNotification {
 }
 
 export function useNotifications(userId: string | null | undefined) {
-  const [notifications, setNotifications] = useState<JarvisNotification[]>([]);
+  const [notifications, setNotifications] = useState<FlyisaNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Request browser notification permission on mount
@@ -55,9 +55,9 @@ export function useNotifications(userId: string | null | undefined) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map((d) => ({
         id: d.id,
-        ...(d.data() as Omit<JarvisNotification, 'id'>),
+        ...(d.data() as Omit<FlyisaNotification, 'id'>),
         createdAt: d.data().createdAt?.toDate?.() ?? null,
-      })) as JarvisNotification[];
+      })) as FlyisaNotification[];
 
       setNotifications(docs);
       setUnreadCount(docs.filter((n) => !n.read).length);
@@ -67,7 +67,7 @@ export function useNotifications(userId: string | null | undefined) {
         .filter((change) => change.type === 'added')
         .map((change) => ({
           id: change.doc.id,
-          ...(change.doc.data() as Omit<JarvisNotification, 'id'>),
+          ...(change.doc.data() as Omit<FlyisaNotification, 'id'>),
         }));
 
       for (const n of newDocs) {

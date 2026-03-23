@@ -25,7 +25,7 @@ export default function Login() {
         toast.success('Conta criada com sucesso!');
       } else {
         await signIn(email, password);
-        toast.success('Bem-vindo ao Jarvis!');
+        toast.success('Bem-vindo ao Flyisa!');
       }
       setLocation('/chat');
     } catch (error: any) {
@@ -39,7 +39,7 @@ export default function Login() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      toast.success('Bem-vindo ao Jarvis!');
+      toast.success('Bem-vindo ao Flyisa!');
       setLocation('/chat');
     } catch (error: any) {
       toast.error(error.message || 'Falha no login com Google');
@@ -79,9 +79,9 @@ export default function Login() {
               boxShadow: '0 0 40px rgba(124,58,237,0.5)',
             }}
           >
-            J
+            F
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Jarvis Travel</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Flyisa Travel</h1>
           <p className="text-white/40 text-sm mt-1">Seu concierge de viagens com IA</p>
         </div>
 

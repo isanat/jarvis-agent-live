@@ -15,8 +15,8 @@ const plugins = (command: string) => [
     registerType: "autoUpdate",
     includeAssets: ["apple-touch-icon.png", "icon-192.png", "icon-512.png"],
     manifest: {
-      name: "Jarvis – Travel Concierge",
-      short_name: "Jarvis",
+      name: "Flyisa – Travel Concierge",
+      short_name: "Flyisa",
       description: "Seu concierge de viagens inteligente com IA",
       theme_color: "#1a1a2e",
       background_color: "#1a1a2e",

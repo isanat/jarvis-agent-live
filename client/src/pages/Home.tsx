@@ -5,6 +5,7 @@ import { useNeuralSphere } from "@/contexts/NeuralSphereContext";
 import { useChatAPI } from "@/hooks/useChatAPI";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useVoice } from "@/hooks/useVoice";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { NeuralSphere } from "@/components/NeuralSphere";
 import { toast } from "sonner";
 import {
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 
 // ── Animated Orb (CSS-only, used when sphere is hidden) ──────────────────────
-function JarvisOrb({ state, size = 38 }: { state: string; size?: number }) {
+function FlyisaOrb({ state, size = 38 }: { state: string; size?: number }) {
   const glow =
     state === "thinking" || state === "searching"
       ? "rgba(251,191,36,0.7)"
@@ -46,7 +47,7 @@ function JarvisOrb({ state, size = 38 }: { state: string; size?: number }) {
         className="relative flex items-center justify-center rounded-full text-white font-extrabold"
         style={{ width: size, height: size, background: grad, fontSize: size * 0.38 }}
       >
-        J
+        F
       </div>
     </div>
   );
@@ -88,8 +89,9 @@ export default function Home() {
   const { user, logout } = useAuth();
   const { setAgentState, agentState } = useNeuralSphere();
   const [, setLocation] = useLocation();
-  const { messages, loading, agentPhase, sendMessage, clearMessages } = useChatAPI();
+  const { messages, loading, agentPhase, sendMessage, clearMessages, activeTrip } = useChatAPI();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user?.uid);
+  usePushNotifications(user?.uid);
 
   const [inputValue, setInputValue] = useState("");
   const [activeTab, setActiveTab] = useState<"chat" | "trips" | "alerts" | "profile">("chat");
@@ -104,13 +106,6 @@ export default function Home() {
     useVoice((final) => {
       if (final.trim()) setInputValue(final);
     });
-
-  // ── Push notification permission ──
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
 
   // ── Auto-scroll ──
   useEffect(() => {
@@ -221,14 +216,21 @@ export default function Home() {
         style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
       >
         <div className="flex items-center gap-2.5">
-          <JarvisOrb state={sphereState} size={36} />
+          <FlyisaOrb state={sphereState} size={36} />
           <div className="leading-tight">
-            <p className="text-white font-bold text-base tracking-wide">Jarvis</p>
+            <p className="text-white font-bold text-base tracking-wide">Flyisa</p>
             <div className="flex items-center gap-1.5">
               {loading ? (
                 <>
                   <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-400" />
                   <span className="text-[11px] text-amber-400">{agentPhase || "Processando..."}</span>
+                </>
+              ) : activeTrip ? (
+                <>
+                  <Plane className="w-2.5 h-2.5 text-violet-400" />
+                  <span className="text-[11px] text-violet-400 truncate max-w-[120px]">
+                    {(activeTrip as any).destination || (activeTrip as any).route || "Viagem ativa"}
+                  </span>
                 </>
               ) : (
                 <>
@@ -247,7 +249,7 @@ export default function Home() {
               onClick={() => { setAutoSpeak((v) => !v); cancelSpeech(); }}
               className="w-9 h-9 flex items-center justify-center rounded-xl transition-all"
               style={{ background: autoSpeak ? "rgba(124,58,237,0.3)" : "rgba(255,255,255,0.05)" }}
-              title={autoSpeak ? "Silenciar Jarvis" : "Jarvis falar"}
+              title={autoSpeak ? "Silenciar Flyisa" : "Flyisa falar"}
             >
               {isSpeaking ? (
                 <Volume2 className="w-4 h-4 text-violet-400" />
@@ -347,7 +349,7 @@ export default function Home() {
                         WebkitTextFillColor: "transparent",
                       }}
                     >
-                      Jarvis Neural Agent
+                      Flyisa Neural Agent
                     </h2>
                     <p className="text-white/40 text-[13px] mt-1.5 tracking-wide">
                       Seu concierge de viagens premium
@@ -420,7 +422,7 @@ export default function Home() {
                     {/* Jarvis avatar */}
                     {msg.role === "assistant" && (
                       <div style={{ marginTop: 2, flexShrink: 0 }}>
-                        <JarvisOrb
+                        <FlyisaOrb
                           state={loading && idx === messages.length - 1 ? sphereState : "idle"}
                           size={24}
                         />
@@ -468,7 +470,7 @@ export default function Home() {
                 {loading && !messages[messages.length - 1]?.content && (
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
                     <div style={{ marginTop: 2, flexShrink: 0 }}>
-                      <JarvisOrb state="thinking" size={24} />
+                      <FlyisaOrb state="thinking" size={24} />
                     </div>
                     <div
                       style={{
@@ -665,7 +667,7 @@ export default function Home() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) handleSend(); }}
-              placeholder="Pergunte ao Jarvis..."
+              placeholder="Pergunte ao Flyisa..."
               disabled={loading}
               className="flex-1 h-11 rounded-2xl px-4 text-sm outline-none transition-all"
               style={{
