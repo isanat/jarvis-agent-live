@@ -378,7 +378,7 @@ export default function FeedPage() {
             <p className="text-white/60 text-sm font-medium">Nenhuma viagem ativa</p>
             <p className="text-white/30 text-xs mt-1">Peça ao Flyisa para criar ou ative uma viagem</p>
             <button
-              onClick={() => setLocation("/chat")}
+              onClick={() => setLocation("/")}
               className="mt-3 px-4 py-1.5 rounded-xl text-xs font-semibold text-violet-300"
               style={{ background: "rgba(124,58,237,0.2)" }}
             >
@@ -461,7 +461,7 @@ export default function FeedPage() {
             { icon: <Luggage className="w-4 h-4" />, label: "Bagagem", path: activeTrip ? `/trips/${activeTrip.id}` : "/trips", color: "#60a5fa" },
             { icon: <FileText className="w-4 h-4" />, label: "Documentos", path: activeTrip ? `/trips/${activeTrip.id}/documents` : "/trips", color: "#34d399" },
             { icon: <Map className="w-4 h-4" />, label: "Mapa", path: "/map", color: "#f59e0b" },
-            { icon: <BellRing className="w-4 h-4" />, label: "Alertas", path: "/chat", color: "#f97316" },
+            { icon: <BellRing className="w-4 h-4" />, label: "Alertas", path: "/", color: "#f97316" },
           ].map(({ icon, label, path, color }) => (
             <button
               key={label}
@@ -480,7 +480,7 @@ export default function FeedPage() {
 
       {/* Floating Flyisa chat FAB */}
       <button
-        onClick={() => setLocation("/chat")}
+        onClick={() => setLocation("/")}
         className="fixed z-50 flex items-center justify-center rounded-full transition-all active:scale-90"
         style={{
           bottom: 80,

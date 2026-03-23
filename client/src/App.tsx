@@ -35,15 +35,17 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
 
-      {/* Root: smart feed (main screen) */}
+      {/* Root: Neural Sphere home (first screen after login) */}
       <Route path="/">
-        {user ? <FeedPage /> : <Login />}
+        {user ? <Home /> : <Login />}
       </Route>
+
+      {/* Smart feed */}
       <Route path="/feed">
         <PrivateRoute><FeedPage /></PrivateRoute>
       </Route>
 
-      {/* Chat — opens via FAB or nav */}
+      {/* Chat (same as home) */}
       <Route path="/chat">
         <PrivateRoute><Home /></PrivateRoute>
       </Route>

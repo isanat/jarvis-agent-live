@@ -244,12 +244,31 @@ function NeuralSphereContent() {
 
 export function NeuralSphere() {
   const metrics = usePerformanceMonitor();
+  // Key increments on WebGL context loss to force Canvas remount and recovery
+  const [canvasKey, setCanvasKey] = useState(0);
 
   return (
     <div className="w-full h-full relative">
       <Canvas
+        key={canvasKey}
         camera={{ position: [0, 0, 4.2], fov: 68 }}
         style={{ width: '100%', height: '100%' }}
+        gl={{
+          powerPreference: "default",
+          antialias: false,          // cheaper on mobile GPU
+          alpha: true,
+          preserveDrawingBuffer: false,
+        }}
+        onCreated={({ gl }) => {
+          const canvas = gl.domElement;
+          const handleContextLost = (e: Event) => {
+            e.preventDefault();
+            // Remount after a short delay to recover the context
+            setTimeout(() => setCanvasKey((k) => k + 1), 800);
+          };
+          canvas.addEventListener("webglcontextlost", handleContextLost);
+          return () => canvas.removeEventListener("webglcontextlost", handleContextLost);
+        }}
       >
         <NeuralSphereContent />
       </Canvas>
