@@ -14,6 +14,27 @@ async function startServer() {
 
   app.use(express.json({ limit: "2mb" }));
 
+  // Generic JSON proxy helper
+  const proxyJson = (path: string) => async (req: express.Request, res: express.Response) => {
+    try {
+      const upstream = await fetch(`${UPSTREAM_API}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body),
+      });
+      const data = await upstream.json().catch(() => ({ success: false, error: "Upstream error" }));
+      res.status(upstream.ok ? 200 : upstream.status).json(data);
+    } catch (err) {
+      console.error(`[${path} proxy]`, err);
+      res.status(502).json({ success: false, error: "Upstream unavailable" });
+    }
+  };
+
+  // Proxy travel API routes → upstream
+  app.post("/api/flight/status", proxyJson("/api/flight/status"));
+  app.post("/api/weather",       proxyJson("/api/weather"));
+  app.post("/api/nearby",        proxyJson("/api/nearby"));
+
   // Proxy POST /chat-stream → upstream API, preserving SSE streaming
   app.post("/chat-stream", async (req, res) => {
     try {

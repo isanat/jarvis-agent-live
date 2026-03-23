@@ -39,20 +39,26 @@ export default function DocumentsPage() {
     if (!user) return;
     setLoading(true);
     try {
+      // Simple query without orderBy to avoid composite index requirement
       const q = tripId
         ? query(
             collection(db, "documents"),
             where("userId", "==", user.uid),
             where("tripId", "==", tripId),
-            orderBy("createdAt", "desc"),
           )
         : query(
             collection(db, "documents"),
             where("userId", "==", user.uid),
-            orderBy("createdAt", "desc"),
           );
       const snap = await getDocs(q);
-      setDocuments(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<DocItem, "id">) })));
+      const docs = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<DocItem, "id">) }))
+        .sort((a, b) => {
+          const ta = (a.createdAt as any)?.seconds ?? 0;
+          const tb = (b.createdAt as any)?.seconds ?? 0;
+          return tb - ta; // desc
+        });
+      setDocuments(docs);
     } catch (err) {
       console.error("Erro ao buscar documentos:", err);
     } finally {
