@@ -9,6 +9,7 @@ import { MapView } from "@/components/Map";
 import {
   ArrowLeft, Plane, Hotel, Users, Luggage, Shield, Clock,
   AlertTriangle, Loader2, MapPin, MessageCircle, FileText, BellRing, Map,
+  Calendar, Navigation,
 } from "lucide-react";
 
 interface TripData {
@@ -409,7 +410,25 @@ export default function TripDetailPage() {
           </Section>
         )}
 
-        {/* Documents shortcut */}
+        {/* Bottom action row */}
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={() => setLocation(`/trips/${tripId}/itinerary`)}
+          >
+            <Calendar className="w-4 h-4 text-violet-500" />
+            Itinerário
+          </Button>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={() => setLocation(`/trips/${tripId}/arrival`)}
+          >
+            <Navigation className="w-4 h-4 text-emerald-500" />
+            Chegada
+          </Button>
+        </div>
         <Button
           variant="outline"
           className="w-full flex items-center gap-2"

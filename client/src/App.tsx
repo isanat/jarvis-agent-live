@@ -6,6 +6,10 @@ import Home from "@/pages/Home";
 import TripsPage from "@/pages/TripsPage";
 import TripDetailPage from "@/pages/TripDetailPage";
 import DocumentsPage from "@/pages/DocumentsPage";
+import FeedPage from "@/pages/FeedPage";
+import ExperiencesPage from "@/pages/ExperiencesPage";
+import ItineraryPage from "@/pages/ItineraryPage";
+import ArrivalPage from "@/pages/ArrivalPage";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -30,29 +34,51 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+
+      {/* Root: home (chat) */}
       <Route path="/">
         {user ? <Home /> : <Login />}
       </Route>
       <Route path="/chat">
-        <PrivateRoute>
-          <Home />
-        </PrivateRoute>
+        <PrivateRoute><Home /></PrivateRoute>
       </Route>
+
+      {/* Smart feed */}
+      <Route path="/feed">
+        <PrivateRoute><FeedPage /></PrivateRoute>
+      </Route>
+
+      {/* Experiences / nearby places */}
+      <Route path="/experiences">
+        <PrivateRoute><ExperiencesPage /></PrivateRoute>
+      </Route>
+
+      {/* Map (reuse Home for now — full map view TBD) */}
+      <Route path="/map">
+        <PrivateRoute><Home /></PrivateRoute>
+      </Route>
+
+      {/* Trips list */}
       <Route path="/trips">
-        <PrivateRoute>
-          <TripsPage />
-        </PrivateRoute>
+        <PrivateRoute><TripsPage /></PrivateRoute>
       </Route>
+
+      {/* Trip sub-routes — specific routes BEFORE the generic :id */}
       <Route path="/trips/:id/documents">
-        <PrivateRoute>
-          <DocumentsPage />
-        </PrivateRoute>
+        <PrivateRoute><DocumentsPage /></PrivateRoute>
       </Route>
+      <Route path="/trips/:id/itinerary">
+        <PrivateRoute><ItineraryPage /></PrivateRoute>
+      </Route>
+      <Route path="/trips/:id/arrival">
+        <PrivateRoute><ArrivalPage /></PrivateRoute>
+      </Route>
+
+      {/* Trip detail */}
       <Route path="/trips/:id">
-        <PrivateRoute>
-          <TripDetailPage />
-        </PrivateRoute>
+        <PrivateRoute><TripDetailPage /></PrivateRoute>
       </Route>
+
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
