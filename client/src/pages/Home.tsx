@@ -6,7 +6,8 @@ import { useChatAPI } from "@/hooks/useChatAPI";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useVoice } from "@/hooks/useVoice";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { NeuralSphere } from "@/components/NeuralSphere";
+import { NeuralPulse } from "@/components/NeuralPulse";
+import { BottomNav } from "@/components/BottomNav";
 import { useProactiveFeed, type ProactiveCard } from "@/hooks/useProactiveFeed";
 import { toast } from "sonner";
 import {
@@ -259,25 +260,9 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [greeting, hasNewGreeting]);
 
-  // ── Nav tabs ──
-  const NAV = [
-    { key: "chat",    icon: HomeIcon,       label: "Início" },
-    { key: "trips",   icon: Plane,         label: "Viagens" },
-    { key: "alerts",  icon: unreadCount > 0 ? BellRing : Bell, label: "Alertas", badge: unreadCount },
-    { key: "profile", icon: User,          label: "Perfil" },
-  ] as const;
-
-  // ── Active tab handler ──
-  const handleTab = (key: typeof activeTab) => {
-    if (key === "trips") { setLocation("/trips"); return; }
-    if (key === "alerts") {
-      setActiveTab("alerts");
-      markAllAsRead();
-    } else {
-      setActiveTab(key);
-      if (key === "chat") setChatMode(false); // voltar à esfera ao tocar em Início
-    }
-  };
+  // Navega para alertas/perfil inline via estado
+  const showAlerts = () => { setActiveTab("alerts"); markAllAsRead(); };
+  const showProfile = () => setActiveTab("profile");
 
   return (
     <div
@@ -339,7 +324,7 @@ export default function Home() {
 
           {/* Notifications bell */}
           <button
-            onClick={() => handleTab("alerts")}
+            onClick={showAlerts}
             className="relative w-9 h-9 flex items-center justify-center rounded-xl"
             style={{ background: "rgba(255,255,255,0.05)" }}
           >
@@ -384,58 +369,95 @@ export default function Home() {
               >
                 <div className="flex flex-col items-center min-h-full">
 
-                  {/* Esfera principal */}
+                  {/* ── Neural Pulse (Canvas) ── */}
                   <div
-                    className="relative w-full shrink-0"
-                    style={{ height: "min(56vh, 400px)" }}
+                    className="relative w-full shrink-0 overflow-hidden"
+                    style={{
+                      height: "min(52vh, 360px)",
+                      background: "radial-gradient(circle at 50% 60%, #1a103d 0%, #0a0516 100%)",
+                    }}
                   >
-                    <div
-                      className="absolute left-1/2 -translate-x-1/2 bottom-0 pointer-events-none"
-                      style={{
-                        width: "80%", height: "60%",
-                        background:
-                          agentState === "thinking" || agentState === "searching"
-                            ? "radial-gradient(ellipse, rgba(251,191,36,0.18) 0%, transparent 70%)"
-                            : agentState === "alert"
-                            ? "radial-gradient(ellipse, rgba(239,68,68,0.18) 0%, transparent 70%)"
-                            : "radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, rgba(59,130,246,0.12) 50%, transparent 75%)",
-                        filter: "blur(24px)",
-                        transition: "background 0.8s ease",
-                      }}
-                    />
-                    <div
-                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
-                      style={{
-                        width: "58%", aspectRatio: "1",
-                        border: "1px solid rgba(167,139,250,0.18)",
-                        boxShadow: "0 0 48px 12px rgba(124,58,237,0.12)",
-                      }}
-                    />
-                    <NeuralSphere />
-                  </div>
+                    {/* Canvas neural network background */}
+                    <NeuralPulse />
 
-                  {/* Título */}
-                  <div className="text-center px-6 pt-1 pb-4">
-                    <h2
-                      className="text-[1.65rem] font-extrabold tracking-tight leading-tight"
-                      style={{
-                        background: "linear-gradient(135deg, #fff 30%, rgba(167,139,250,0.95) 100%)",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                      }}
+                    {/* Centre overlay: glowing ring + lightning icon (like mockup) */}
+                    <div
+                      className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                      style={{ zIndex: 10 }}
                     >
-                      Flyisa Neural Agent
-                    </h2>
-                    <p className="text-white/40 text-[13px] mt-1.5 tracking-wide">
-                      Seu concierge de viagens premium
-                    </p>
-                    <div className="flex items-center justify-center gap-1.5 mt-3">
+                      {/* Outer glow blur */}
                       <div
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-full"
-                        style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.2)" }}
+                        className="absolute rounded-full"
+                        style={{
+                          width: 140, height: 140,
+                          background:
+                            agentState === "thinking" || agentState === "searching"
+                              ? "radial-gradient(circle, rgba(0,220,255,0.22) 0%, transparent 70%)"
+                              : agentState === "alert"
+                              ? "radial-gradient(circle, rgba(239,68,68,0.22) 0%, transparent 70%)"
+                              : "radial-gradient(circle, rgba(150,100,255,0.22) 0%, transparent 70%)",
+                          filter: "blur(16px)",
+                          transition: "background 0.8s ease",
+                        }}
+                      />
+                      {/* Ring */}
+                      <div
+                        className="absolute rounded-full"
+                        style={{
+                          width: 100, height: 100,
+                          border: agentState === "thinking" || agentState === "searching"
+                            ? "1.5px solid rgba(0,220,255,0.45)"
+                            : agentState === "alert"
+                            ? "1.5px solid rgba(239,68,68,0.45)"
+                            : "1.5px solid rgba(150,100,255,0.45)",
+                          boxShadow: "0 0 24px 6px rgba(150,100,255,0.15)",
+                          transition: "border-color 0.6s ease",
+                        }}
+                      />
+                      {/* Lightning icon */}
+                      <div
+                        className="relative flex items-center justify-center rounded-full"
+                        style={{
+                          width: 64, height: 64,
+                          background: "rgba(0,0,0,0.4)",
+                          backdropFilter: "blur(8px)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
                       >
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-emerald-400 text-[11px] font-medium">Neural IA ativa</span>
+                        <Zap
+                          className="w-8 h-8"
+                          style={{
+                            color:
+                              agentState === "thinking" || agentState === "searching"
+                                ? "#00DCFF"
+                                : agentState === "alert"
+                                ? "#EF4444"
+                                : "#9664FF",
+                            filter: "drop-shadow(0 0 8px currentColor)",
+                            transition: "color 0.5s ease",
+                          }}
+                        />
+                      </div>
+
+                      {/* Title + status below icon */}
+                      <div className="mt-5 text-center px-6">
+                        <h2
+                          className="text-[1.4rem] font-light tracking-[0.08em] text-white"
+                          style={{ textShadow: "0 0 20px rgba(150,100,255,0.4)" }}
+                        >
+                          Flyisa Neural Agent
+                        </h2>
+                        <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full"
+                          style={{ background: "rgba(0,255,150,0.15)", border: "1px solid rgba(0,255,150,0.3)" }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse block" />
+                          <span className="text-emerald-400 text-[11px] font-medium tracking-wide">
+                            {agentState === "thinking" ? "Processando..." :
+                             agentState === "searching" ? "Buscando..." :
+                             agentState === "alert" ? "Atenção!" :
+                             "Neural IA ativa"}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -809,43 +831,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Bottom navigation ─────────────────────────────────── */}
-      <nav
-        className="glass-dark pb-safe shrink-0 flex justify-around items-center px-2 pt-2"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        {NAV.map(({ key, icon: Icon, label, ...rest }) => {
-          const badge = (rest as any).badge;
-          const active = activeTab === key;
-          return (
-            <button
-              key={key}
-              onClick={() => handleTab(key as typeof activeTab)}
-              className="relative flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-2xl transition-all active:scale-95"
-              style={{ minWidth: 56, background: active ? "rgba(124,58,237,0.2)" : "transparent" }}
-            >
-              <Icon
-                className="w-5 h-5 transition-colors"
-                style={{
-                  color: active ? "#a78bfa" : "rgba(255,255,255,0.35)",
-                  ...(key === "alerts" && (badge ?? 0) > 0 ? { color: "#fb923c" } : {}),
-                }}
-              />
-              <span
-                className="text-[10px] font-medium"
-                style={{ color: active ? "#a78bfa" : "rgba(255,255,255,0.3)" }}
-              >
-                {label}
-              </span>
-              {(badge ?? 0) > 0 && (
-                <span className="absolute top-0 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                  {(badge ?? 0) > 9 ? "9+" : badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+      {/* ── Bottom navigation — shared BottomNav (Flyisa, Feed, Sugestões, Reservas, Mapa) ── */}
+      <BottomNav active="chat" />
     </div>
   );
 }

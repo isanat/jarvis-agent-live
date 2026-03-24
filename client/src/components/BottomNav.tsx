@@ -1,15 +1,15 @@
 import { useLocation } from "wouter";
-import { Rss, Map, Sparkles, CalendarDays, MessageCircle } from "lucide-react";
+import { Zap, Rss, Sparkles, Plane, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type NavTab = "feed" | "map" | "suggestions" | "trips" | "chat";
+export type NavTab = "chat" | "feed" | "suggestions" | "trips" | "profile";
 
-const NAV_ITEMS: { key: NavTab; icon: React.ComponentType<{ className?: string }>; label: string; path: string }[] = [
-  { key: "chat",        icon: MessageCircle,label: "Flyisa",     path: "/" },
-  { key: "feed",        icon: Rss,          label: "Feed",       path: "/feed" },
-  { key: "suggestions", icon: Sparkles,     label: "Sugestões",  path: "/experiences" },
-  { key: "trips",       icon: CalendarDays, label: "Reservas",   path: "/trips" },
-  { key: "map",         icon: Map,          label: "Mapa",       path: "/map" },
+const NAV_ITEMS: { key: NavTab; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string; path: string }[] = [
+  { key: "chat",        icon: Zap,      label: "Início",    path: "/" },
+  { key: "feed",        icon: Rss,      label: "Feed",      path: "/feed" },
+  { key: "trips",       icon: Plane,    label: "Viagens",   path: "/trips" },
+  { key: "suggestions", icon: Sparkles, label: "Sugestões", path: "/experiences" },
+  { key: "profile",     icon: User,     label: "Perfil",    path: "/?tab=profile" },
 ];
 
 interface BottomNavProps {
@@ -17,16 +17,18 @@ interface BottomNavProps {
 }
 
 export function BottomNav({ active }: BottomNavProps) {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-around pb-safe"
+      className="shrink-0 flex items-center justify-around pb-safe"
       style={{
-        background: "rgba(6,0,17,0.92)",
-        backdropFilter: "blur(16px)",
+        background: "rgba(6,0,17,0.96)",
+        backdropFilter: "blur(20px)",
         borderTop: "1px solid rgba(255,255,255,0.07)",
-        height: 64,
+        minHeight: 60,
+        paddingTop: 8,
+        paddingBottom: 10,
       }}
     >
       {NAV_ITEMS.map(({ key, icon: Icon, label, path }) => {
@@ -35,24 +37,24 @@ export function BottomNav({ active }: BottomNavProps) {
           <button
             key={key}
             onClick={() => setLocation(path)}
-            className={cn(
-              "flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-xl transition-all",
-              isActive ? "text-violet-400" : "text-white/40 hover:text-white/60",
-            )}
+            className="relative flex flex-col items-center gap-[3px] px-3 transition-all active:scale-95"
+            style={{ minWidth: 52 }}
           >
             <Icon
-              className={cn(
-                "w-5 h-5 transition-transform",
-                isActive && "scale-110",
-              )}
+              className={cn("w-[22px] h-[22px] transition-colors")}
+              style={{ color: isActive ? "#ffffff" : "rgba(255,255,255,0.35)" }}
             />
-            <span className={cn("text-[10px] font-medium leading-none", isActive && "text-violet-400")}>
+            <span
+              className="text-[10px] font-medium leading-none tracking-wide"
+              style={{ color: isActive ? "#ffffff" : "rgba(255,255,255,0.35)" }}
+            >
               {label}
             </span>
+            {/* Active underline */}
             {isActive && (
               <span
-                className="absolute -bottom-0 w-8 h-0.5 rounded-full"
-                style={{ background: "rgba(167,139,250,0.8)" }}
+                className="absolute -bottom-[10px] left-1/2 -translate-x-1/2 h-[2px] rounded-full"
+                style={{ width: 28, background: "#fff" }}
               />
             )}
           </button>
