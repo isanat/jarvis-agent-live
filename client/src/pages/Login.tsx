@@ -6,6 +6,35 @@ import { toast } from 'sonner';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
+// Traduz códigos de erro Firebase → mensagem clara em português
+function firebaseError(code: string): string {
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'E-mail ou senha incorretos. Verifique os dados ou crie uma nova conta.';
+    case 'auth/email-already-in-use':
+      return 'Este e-mail já está cadastrado. Tente entrar com a senha.';
+    case 'auth/weak-password':
+      return 'A senha deve ter pelo menos 6 caracteres.';
+    case 'auth/invalid-email':
+      return 'E-mail inválido. Verifique o formato.';
+    case 'auth/too-many-requests':
+      return 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
+    case 'auth/network-request-failed':
+      return 'Sem conexão com a internet. Verifique sua rede.';
+    case 'auth/popup-blocked':
+    case 'auth/popup-closed-by-user':
+      return 'O pop-up de login foi bloqueado ou fechado. Tente novamente.';
+    case 'auth/unauthorized-domain':
+      return 'Domínio não autorizado no Firebase. Contate o suporte.';
+    case 'auth/operation-not-allowed':
+      return 'Login com e-mail desabilitado. Use "Continuar com Google".';
+    default:
+      return 'Falha na autenticação. Tente novamente.';
+  }
+}
+
 export default function Login() {
   const { signIn, signInWithGoogle, user } = useAuth();
   const [, setLocation] = useLocation();
@@ -29,7 +58,12 @@ export default function Login() {
       }
       setLocation('/chat');
     } catch (error: any) {
-      toast.error(error.message || 'Falha na autenticação');
+      const msg = firebaseError(error.code || '');
+      toast.error(msg, { duration: 6000 });
+      // Se credencial inválida no login, sugere criar conta
+      if (!isSignUp && (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found')) {
+        setIsSignUp(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -42,7 +76,7 @@ export default function Login() {
       toast.success('Bem-vindo ao Flyisa!');
       setLocation('/chat');
     } catch (error: any) {
-      toast.error(error.message || 'Falha no login com Google');
+      toast.error(firebaseError(error.code || ''), { duration: 6000 });
     } finally {
       setLoading(false);
     }
