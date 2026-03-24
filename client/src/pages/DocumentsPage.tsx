@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  collection, query, where, orderBy, getDocs,
-} from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, useRoute } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BottomNav } from "@/components/BottomNav";
 import { toast } from "sonner";
 import {
   ArrowLeft, FileText, Download, Upload, Loader2, File,
+  ScanText, Plane, Hotel, CheckCircle2,
 } from "lucide-react";
 
 interface DocItem {
@@ -27,37 +25,26 @@ interface DocItem {
 export default function DocumentsPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [, params] = useRoute("/trips/:id/documents");
-  const tripId = params?.id;
+  const [, tripParams] = useRoute("/trips/:id/documents");
+  const tripId = tripParams?.id;
 
   const [documents, setDocuments] = useState<DocItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadStep, setUploadStep] = useState<"idle" | "uploading" | "reading" | "saving" | "done">("idle");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchDocs = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Simple query without orderBy to avoid composite index requirement
       const q = tripId
-        ? query(
-            collection(db, "documents"),
-            where("userId", "==", user.uid),
-            where("tripId", "==", tripId),
-          )
-        : query(
-            collection(db, "documents"),
-            where("userId", "==", user.uid),
-          );
+        ? query(collection(db, "documents"), where("userId", "==", user.uid), where("tripId", "==", tripId))
+        : query(collection(db, "documents"), where("userId", "==", user.uid));
       const snap = await getDocs(q);
       const docs = snap.docs
         .map((d) => ({ id: d.id, ...(d.data() as Omit<DocItem, "id">) }))
-        .sort((a, b) => {
-          const ta = (a.createdAt as any)?.seconds ?? 0;
-          const tb = (b.createdAt as any)?.seconds ?? 0;
-          return tb - ta; // desc
-        });
+        .sort((a, b) => ((b.createdAt as any)?.seconds ?? 0) - ((a.createdAt as any)?.seconds ?? 0));
       setDocuments(docs);
     } catch (err) {
       console.error("Erro ao buscar documentos:", err);
@@ -73,9 +60,7 @@ export default function DocumentsPage() {
     try {
       const url = await getDownloadURL(storageRef(storage, path));
       const a = document.createElement("a");
-      a.href = url;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
+      a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
       if (title) a.download = title;
       a.click();
     } catch {
@@ -85,28 +70,37 @@ export default function DocumentsPage() {
 
   const handleFileUpload = async (file: File) => {
     if (!user) { toast.error("Faça login para enviar documentos."); return; }
-    if (!tripId) { toast.error("Viagem não identificada."); return; }
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("tripId", tripId);
+    if (tripId) formData.append("tripId", tripId);
 
     try {
       setUploading(true);
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "/api";
-      const response = await fetch(`${backendUrl}/docs/process`, {
+      setUploadStep("uploading");
+
+      const response = await fetch("/api/docs/process", {
         method: "POST",
         body: formData,
       });
+
+      setUploadStep("reading");
+
       const data = await response.json();
+
       if (data.success) {
-        toast.success(data.message || "Documento processado e salvo.");
+        setUploadStep("saving");
         await fetchDocs();
+        setUploadStep("done");
+        setTimeout(() => setUploadStep("idle"), 2500);
+        toast.success(data.message || "Documento processado! Flyisa aprendeu com seus dados de viagem.");
       } else {
+        setUploadStep("idle");
         toast.error(data.error || "Erro ao processar documento.");
       }
     } catch {
-      toast.error("Falha ao enviar documento.");
+      setUploadStep("idle");
+      toast.error("Falha ao enviar documento. Verifique sua conexão.");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -122,117 +116,182 @@ export default function DocumentsPage() {
     return parts.join(" · ") || "Arquivo";
   };
 
+  const stepLabel: Record<typeof uploadStep, string> = {
+    idle: "",
+    uploading: "Enviando arquivo...",
+    reading: "GLM Vision lendo documento...",
+    saving: "Salvando dados de viagem...",
+    done: "Concluído!",
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950">
-      <header className="border-b border-border bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container flex items-center h-16 gap-3">
-          <Button variant="ghost" size="icon" onClick={() => tripId ? setLocation(`/trips/${tripId}`) : setLocation("/trips")}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold">Documentos</h1>
-            <p className="text-xs text-muted-foreground leading-none">
-              {tripId ? "desta viagem" : "de todas as viagens"}
-            </p>
-          </div>
+    <div
+      className="fixed inset-0 flex flex-col overflow-hidden"
+      style={{
+        background:
+          "radial-gradient(ellipse at 60% 10%, rgba(124,58,237,0.12) 0%,transparent 55%), radial-gradient(ellipse at 20% 90%, rgba(37,99,235,0.10) 0%,transparent 55%), #060011",
+      }}
+    >
+      {/* Header */}
+      <header
+        className="pt-safe shrink-0 flex items-center gap-3 px-4 py-4"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        <button
+          onClick={() => tripId ? setLocation(`/trips/${tripId}`) : setLocation("/trips")}
+          className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        >
+          <ArrowLeft className="w-4 h-4 text-white/70" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-extrabold text-lg leading-none">Documentos</p>
+          <p className="text-white/35 text-xs mt-0.5">
+            {tripId ? "Envie e-tickets e reservas desta viagem" : "Envie documentos para alimentar a Flyisa"}
+          </p>
         </div>
+        <ScanText className="w-5 h-5 text-violet-400" />
       </header>
 
-      <main className="container py-6 max-w-2xl mx-auto space-y-4">
-        {/* Upload area — only available for a specific trip */}
-        {tripId && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Upload className="w-4 h-4 text-blue-500" />
-                Enviar documento
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileUpload(file);
-                }}
-              />
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => fileInputRef.current?.click()}
-                onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
-                className="border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-xl p-6 text-center cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
-              >
-                {uploading ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                    <p className="text-sm text-muted-foreground">Processando com IA...</p>
+      <div className="flex-1 overflow-y-auto pb-20 pt-4 space-y-4 px-4" style={{ scrollbarWidth: "none" }}>
+
+        {/* Upload zone */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.2)" }}
+        >
+          <div className="px-4 pt-4 pb-3">
+            <p className="text-violet-300 text-[11px] font-bold uppercase tracking-widest mb-1">
+              ✈️ Alimentar a Flyisa
+            </p>
+            <p className="text-white/60 text-xs leading-relaxed">
+              Envie e-tickets, confirmações de hotel, itinerários — a Flyisa lê com OCR (GLM Vision) e cadastra a viagem automaticamente.
+            </p>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }}
+          />
+
+          <button
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            disabled={uploading}
+            className="w-full px-4 pb-4"
+          >
+            <div
+              className="rounded-xl p-5 flex flex-col items-center gap-3 transition-all active:scale-[0.98]"
+              style={{
+                background: "rgba(0,0,0,0.2)",
+                border: "2px dashed rgba(124,58,237,0.4)",
+              }}
+            >
+              {uploading ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    {uploadStep === "done"
+                      ? <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                      : <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+                    }
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="w-8 h-8 text-blue-400" />
-                    <p className="text-sm font-medium">Arraste ou clique para enviar</p>
-                    <p className="text-xs text-muted-foreground">PDF, JPG ou PNG — processado automaticamente</p>
+                  <p className="text-violet-300 text-sm font-medium">{stepLabel[uploadStep]}</p>
+                  <div className="flex gap-1">
+                    {(["uploading","reading","saving","done"] as const).map((s) => (
+                      <div
+                        key={s}
+                        className="h-1 w-8 rounded-full transition-all"
+                        style={{
+                          background: ["uploading","reading","saving","done"].indexOf(s) <= ["uploading","reading","saving","done"].indexOf(uploadStep)
+                            ? "#7c3aed" : "rgba(255,255,255,0.1)"
+                        }}
+                      />
+                    ))}
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                </>
+              ) : (
+                <>
+                  <Upload className="w-8 h-8 text-violet-400" />
+                  <p className="text-white/80 text-sm font-semibold">Toque para enviar</p>
+                  <p className="text-white/35 text-[11px]">PDF, JPG ou PNG · máx. 10 MB</p>
+                </>
+              )}
+            </div>
+          </button>
+        </div>
+
+        {/* Tip */}
+        <div className="flex items-start gap-3 px-1">
+          <div className="flex gap-3 text-white/25 text-[11px] leading-relaxed">
+            <Plane className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-400/50" />
+            E-tickets de voo
+          </div>
+          <div className="flex gap-3 text-white/25 text-[11px] leading-relaxed">
+            <Hotel className="w-3.5 h-3.5 mt-0.5 shrink-0 text-violet-400/50" />
+            Confirmações de hotel
+          </div>
+          <div className="flex gap-3 text-white/25 text-[11px] leading-relaxed">
+            <FileText className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-400/50" />
+            Itinerários PDF
+          </div>
+        </div>
 
         {/* Documents list */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="w-4 h-4 text-blue-500" />
-              {loading ? "Carregando..." : `${documents.length} documento${documents.length !== 1 ? "s" : ""}`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-              </div>
-            ) : documents.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                <File className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                Nenhum documento ainda.{tripId ? " Envie acima para começar." : ""}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {documents.map((d) => (
+        <div>
+          <p className="text-[10px] font-bold tracking-widest uppercase text-white/30 mb-2">
+            {loading ? "Carregando..." : `${documents.length} documento${documents.length !== 1 ? "s" : ""} salvo${documents.length !== 1 ? "s" : ""}`}
+          </p>
+
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-violet-400" />
+            </div>
+          ) : documents.length === 0 ? (
+            <div
+              className="rounded-2xl p-6 flex flex-col items-center gap-2 text-center"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <File className="w-8 h-8 text-white/15" />
+              <p className="text-white/40 text-sm">Nenhum documento ainda</p>
+              <p className="text-white/20 text-xs">Envie acima para começar</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {documents.map((d) => (
+                <div
+                  key={d.id}
+                  className="flex items-center gap-3 p-3 rounded-2xl"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+                >
                   <div
-                    key={d.id}
-                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-border/40"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: "rgba(124,58,237,0.2)" }}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                        <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{docTitle(d)}</p>
-                        <p className="text-xs text-muted-foreground truncate">{docMeta(d)}</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0"
-                      title="Baixar"
-                      onClick={() => handleDownload(d.storagePath, docTitle(d))}
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
+                    <FileText className="w-4 h-4 text-violet-400" />
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </main>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium text-sm truncate">{docTitle(d)}</p>
+                    <p className="text-white/35 text-[11px] truncate">{docMeta(d)}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDownload(d.storagePath, docTitle(d))}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90 shrink-0"
+                    style={{ background: "rgba(255,255,255,0.06)" }}
+                    title="Baixar"
+                  >
+                    <Download className="w-4 h-4 text-white/50" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      <BottomNav active="trips" />
     </div>
   );
 }

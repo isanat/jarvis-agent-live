@@ -22,10 +22,15 @@ function Router() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950">
+      <div className="fixed inset-0 flex items-center justify-center" style={{ background: "#060011" }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-          <p className="text-sm text-muted-foreground">Carregando...</p>
+          <div
+            className="w-12 h-12 rounded-[16px] flex items-center justify-center text-2xl font-extrabold text-white shadow-2xl"
+            style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)", boxShadow: "0 0 32px rgba(124,58,237,0.5)" }}
+          >
+            F
+          </div>
+          <p className="text-white/40 text-sm">Carregando...</p>
         </div>
       </div>
     );
@@ -63,6 +68,11 @@ function Router() {
       {/* Trips list */}
       <Route path="/trips">
         <PrivateRoute><TripsPage /></PrivateRoute>
+      </Route>
+
+      {/* Standalone documents upload (no trip required) */}
+      <Route path="/documents">
+        <PrivateRoute><DocumentsPage /></PrivateRoute>
       </Route>
 
       {/* Trip sub-routes — specific routes BEFORE the generic :id */}

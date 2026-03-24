@@ -75,10 +75,10 @@ export default function TripsPage() {
           </p>
         </div>
         <button
-          onClick={() => setLocation("/")}
+          onClick={() => setLocation("/documents")}
           className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90"
           style={{ background: "rgba(124,58,237,0.25)", border: "1px solid rgba(124,58,237,0.4)" }}
-          title="Adicionar viagem via chat"
+          title="Enviar documentos de viagem"
         >
           <Plus className="w-4 h-4 text-violet-300" />
         </button>

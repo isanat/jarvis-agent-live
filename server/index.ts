@@ -86,7 +86,9 @@ async function startServer() {
         body: JSON.stringify(req.body),
       });
       const data = await upstream.json().catch(() => ({ success: false, error: "Upstream error" }));
-      res.status(upstream.ok ? 200 : upstream.status).json(data);
+      // Never forward 5xx from upstream as-is — use 502 so the client gets a proper JSON body
+      const status = upstream.ok ? 200 : (upstream.status >= 500 ? 502 : upstream.status);
+      res.status(status).json(data);
     } catch (err) {
       console.error(`[${upPath} proxy]`, err);
       res.status(502).json({ success: false, error: "Upstream unavailable" });
@@ -126,6 +128,30 @@ async function startServer() {
     } catch (err) {
       console.error("[nearby proxy]", err);
       res.status(502).json({ success: false, error: "Upstream unavailable" });
+    }
+  });
+
+  // Docs process → forward multipart to upstream (no cache, use stream proxy)
+  app.post("/api/docs/process", async (req, res) => {
+    try {
+      // Forward the raw request body as-is (multipart)
+      const contentType = req.headers["content-type"] || "";
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      await new Promise<void>((resolve) => req.on("end", resolve));
+      const body = Buffer.concat(chunks);
+
+      const upstream = await fetch(`${UPSTREAM_API}/api/docs/process`, {
+        method: "POST",
+        headers: { "content-type": contentType, "content-length": String(body.length) },
+        body,
+      });
+      const data = await upstream.json().catch(() => ({ success: false, error: "Upstream error" }));
+      const status = upstream.ok ? 200 : (upstream.status >= 500 ? 502 : upstream.status);
+      res.status(status).json(data);
+    } catch (err) {
+      console.error("[docs/process proxy]", err);
+      res.status(502).json({ success: false, error: "Serviço de documentos indisponível. Tente novamente em instantes." });
     }
   });
 
