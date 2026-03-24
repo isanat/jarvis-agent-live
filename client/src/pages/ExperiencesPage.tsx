@@ -55,7 +55,7 @@ function PlaceCard({ place }: { place: Place }) {
     >
       {/* Photo / placeholder */}
       <div
-        className="w-full h-28 bg-white/5 flex items-center justify-center"
+        className="relative w-full h-28 bg-white/5 flex items-center justify-center"
         style={{
           backgroundImage: place.photoUrl ? `url(${place.photoUrl})` : undefined,
           backgroundSize: "cover",
@@ -285,7 +285,7 @@ export default function ExperiencesPage() {
 
         {!locLoading && !locError && (
           <>
-            {/* Show active category prominently */}
+            {/* Show only active category */}
             {CATEGORIES.filter((c) => c.key === activeCategory).map(({ key, label, emoji }) => (
               <PlacesSection
                 key={key}
@@ -293,19 +293,6 @@ export default function ExperiencesPage() {
                 label={label}
                 places={placesByCategory[key as CategoryKey] || []}
                 loading={loadingCategory.has(key as CategoryKey)}
-              />
-            ))}
-
-            {/* Show other pre-loaded categories */}
-            {CATEGORIES.filter(
-              (c) => c.key !== activeCategory && placesByCategory[c.key as CategoryKey]?.length,
-            ).map(({ key, label, emoji }) => (
-              <PlacesSection
-                key={key}
-                emoji={emoji}
-                label={label}
-                places={placesByCategory[key as CategoryKey] || []}
-                loading={false}
               />
             ))}
 

@@ -373,7 +373,7 @@ export default function Home() {
                   <div
                     className="relative w-full shrink-0 overflow-hidden"
                     style={{
-                      height: "min(52vh, 360px)",
+                      height: "min(38vh, 260px)",
                       background: "radial-gradient(circle at 50% 60%, #1a103d 0%, #0a0516 100%)",
                     }}
                   >
@@ -439,25 +439,17 @@ export default function Home() {
                         />
                       </div>
 
-                      {/* Title + status below icon */}
-                      <div className="mt-5 text-center px-6">
-                        <h2
-                          className="text-[1.4rem] font-light tracking-[0.08em] text-white"
-                          style={{ textShadow: "0 0 20px rgba(150,100,255,0.4)" }}
-                        >
-                          Flyisa Neural Agent
-                        </h2>
-                        <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full"
-                          style={{ background: "rgba(0,255,150,0.15)", border: "1px solid rgba(0,255,150,0.3)" }}
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse block" />
-                          <span className="text-emerald-400 text-[11px] font-medium tracking-wide">
-                            {agentState === "thinking" ? "Processando..." :
-                             agentState === "searching" ? "Buscando..." :
-                             agentState === "alert" ? "Atenção!" :
-                             "Neural IA ativa"}
-                          </span>
-                        </div>
+                      {/* Status pill below icon */}
+                      <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full"
+                        style={{ background: "rgba(0,255,150,0.12)", border: "1px solid rgba(0,255,150,0.25)" }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse block" />
+                        <span className="text-emerald-400 text-[11px] font-medium tracking-wide">
+                          {agentState === "thinking" ? "Processando..." :
+                           agentState === "searching" ? "Buscando..." :
+                           agentState === "alert" ? "Atenção!" :
+                           "Online"}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -507,21 +499,20 @@ export default function Home() {
                     </div>
                   ) : (
                     /* Sem viagem: sugestões padrão em grid 2x2 */
-                    <div className="w-full px-4 grid grid-cols-2 gap-3 mb-4">
+                    <div className="w-full px-4 grid grid-cols-2 gap-2.5 mb-4">
                       {SUGGESTIONS.map((s) => (
                         <button
                           key={s.label}
                           onClick={() => { setInputValue(s.label); inputRef.current?.focus(); }}
-                          className="relative rounded-2xl p-4 text-left transition-all active:scale-95 overflow-hidden"
+                          className="relative rounded-2xl p-3 text-left transition-all active:scale-95 overflow-hidden flex items-center gap-2.5"
                           style={{
                             background: "rgba(255,255,255,0.045)",
                             border: "1px solid rgba(255,255,255,0.09)",
-                            backdropFilter: "blur(16px)",
                           }}
                         >
-                          <div className="absolute -top-4 -left-4 w-20 h-20 rounded-full pointer-events-none" style={{ background: s.accent, filter: "blur(16px)" }} />
-                          <span className="relative text-2xl">{s.icon}</span>
-                          <p className="relative text-white/80 text-[12px] mt-2 leading-snug font-medium">{s.label}</p>
+                          <div className="absolute -top-3 -left-3 w-14 h-14 rounded-full pointer-events-none" style={{ background: s.accent, filter: "blur(12px)" }} />
+                          <span className="relative text-xl shrink-0">{s.icon}</span>
+                          <p className="relative text-white/80 text-[11px] leading-snug font-medium">{s.label}</p>
                         </button>
                       ))}
                     </div>
@@ -573,7 +564,7 @@ export default function Home() {
                       {loading ? (
                         <p className="text-amber-400 text-[10px]">{agentPhase || "Pensando..."}</p>
                       ) : (
-                        <p className="text-emerald-400 text-[10px]">Neural IA ativa</p>
+                        <p className="text-emerald-400 text-[10px]">Online</p>
                       )}
                     </div>
                   </div>

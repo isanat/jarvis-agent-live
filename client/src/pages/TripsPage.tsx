@@ -3,10 +3,8 @@ import { collection, query, where, orderBy, onSnapshot } from "firebase/firestor
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plane, Hotel, Clock, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { BottomNav } from "@/components/BottomNav";
+import { Plane, Hotel, Clock, AlertTriangle, CheckCircle, Loader2, Plus, ChevronRight } from "lucide-react";
 
 interface TripFlight {
   flight: string;
@@ -15,8 +13,6 @@ interface TripFlight {
   date: string;
   depart?: string;
   arrive?: string;
-  seat?: string;
-  pnr?: string;
 }
 
 interface Trip {
@@ -33,11 +29,11 @@ interface Trip {
   terminal?: string;
 }
 
-const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  upcoming: { label: "Próxima",   className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
-  active:   { label: "Em andamento", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
-  past:     { label: "Concluída", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
-  cancelled:{ label: "Cancelada", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+const STATUS: Record<string, { label: string; color: string; bg: string }> = {
+  upcoming:  { label: "Próxima",       color: "#60a5fa", bg: "rgba(59,130,246,0.15)"  },
+  active:    { label: "Em andamento",  color: "#34d399", bg: "rgba(52,211,153,0.15)"  },
+  past:      { label: "Concluída",     color: "#ffffff40", bg: "rgba(255,255,255,0.07)" },
+  cancelled: { label: "Cancelada",     color: "#ef4444", bg: "rgba(239,68,68,0.15)"   },
 };
 
 export default function TripsPage() {
@@ -48,117 +44,152 @@ export default function TripsPage() {
 
   useEffect(() => {
     if (!user?.uid) return;
-
     const q = query(
       collection(db, "trips"),
       where("userId", "==", user.uid),
-      orderBy("departureDate", "desc")
+      orderBy("departureDate", "desc"),
     );
-
-    const unsub = onSnapshot(q, (snap) => {
+    return onSnapshot(q, (snap) => {
       setTrips(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Trip, "id">) })));
       setLoading(false);
     });
-
-    return () => unsub();
   }, [user?.uid]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950">
-      <header className="border-b border-border bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container flex items-center gap-3 h-16">
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/")}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-xl font-bold">Minhas Viagens</h1>
+    <div
+      className="fixed inset-0 flex flex-col overflow-hidden"
+      style={{
+        background:
+          "radial-gradient(ellipse at 70% 10%, rgba(59,130,246,0.10) 0%,transparent 50%), radial-gradient(ellipse at 20% 90%, rgba(124,58,237,0.10) 0%,transparent 50%), #060011",
+      }}
+    >
+      {/* Header */}
+      <header
+        className="pt-safe shrink-0 flex items-center justify-between px-4 py-4"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        <div>
+          <p className="text-white font-extrabold text-xl">Minhas Viagens</p>
+          <p className="text-white/40 text-xs mt-0.5">
+            {loading ? "Carregando..." : `${trips.length} viagem${trips.length !== 1 ? "s" : ""}`}
+          </p>
         </div>
+        <button
+          onClick={() => setLocation("/")}
+          className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90"
+          style={{ background: "rgba(124,58,237,0.25)", border: "1px solid rgba(124,58,237,0.4)" }}
+          title="Adicionar viagem via chat"
+        >
+          <Plus className="w-4 h-4 text-violet-300" />
+        </button>
       </header>
 
-      <main className="container py-6 max-w-3xl mx-auto space-y-4">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      {/* List */}
+      <div className="flex-1 overflow-y-auto pb-20 pt-3 space-y-2.5 px-4" style={{ scrollbarWidth: "none" }}>
+        {loading && (
+          <div className="flex justify-center py-16">
+            <Loader2 className="w-7 h-7 animate-spin text-violet-400" />
           </div>
-        ) : trips.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground space-y-3">
-            <Plane className="w-12 h-12 mx-auto opacity-30" />
-            <p>Nenhuma viagem cadastrada</p>
-            <p className="text-xs">Envie documentos de viagem para o Flyisa para começar</p>
-          </div>
-        ) : (
-          trips.map((trip) => {
-            const primary = trip.flights?.[0];
-            const fs = trip.flightStatus;
-            const delay = fs?.departure?.delay || 0;
-            const statusInfo = STATUS_BADGE[trip.status || "upcoming"] ?? STATUS_BADGE.upcoming;
-            const hasAlert = delay >= 15 || fs?.status === "cancelled";
-
-            return (
-              <Card
-                key={trip.id}
-                className={`cursor-pointer transition-shadow hover:shadow-lg ${hasAlert ? "border-orange-300 dark:border-orange-700" : ""}`}
-                onClick={() => setLocation(`/trips/${trip.id}`)}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-lg truncate">
-                          {trip.destination || trip.route || (primary ? `${primary.from} → ${primary.to}` : "Viagem")}
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo.className}`}>
-                          {statusInfo.label}
-                        </span>
-                      </div>
-
-                      {primary && (
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <Plane className="w-3.5 h-3.5" />
-                          <span>{primary.flight}</span>
-                          <span>·</span>
-                          <span>{primary.from} → {primary.to}</span>
-                          {primary.date && <><span>·</span><span>{primary.date}</span></>}
-                        </div>
-                      )}
-
-                      {(trip.gate || fs?.departure?.gate) && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                          <Clock className="w-3 h-3" />
-                          <span>
-                            Portão {trip.gate || fs?.departure?.gate}
-                            {(trip.terminal || fs?.departure?.terminal) && ` · Terminal ${trip.terminal || fs?.departure?.terminal}`}
-                          </span>
-                        </div>
-                      )}
-
-                      {trip.hotel?.name && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                          <Hotel className="w-3 h-3" />
-                          <span>{trip.hotel.name}</span>
-                          {trip.hotel.checkIn && <><span>·</span><span>Check-in: {trip.hotel.checkIn}</span></>}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="shrink-0">
-                      {fs?.status === "cancelled" ? (
-                        <AlertTriangle className="w-5 h-5 text-red-500" />
-                      ) : delay >= 15 ? (
-                        <div className="text-right">
-                          <AlertTriangle className="w-5 h-5 text-orange-500 mx-auto" />
-                          <span className="text-xs text-orange-600 dark:text-orange-400">+{delay}min</span>
-                        </div>
-                      ) : fs?.status === "active" || fs?.status === "en-route" ? (
-                        <CheckCircle className="w-5 h-5 text-green-500" />
-                      ) : null}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
         )}
-      </main>
+
+        {!loading && trips.length === 0 && (
+          <div
+            className="rounded-2xl p-8 flex flex-col items-center text-center gap-3 mt-4"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <Plane className="w-10 h-10 text-white/15" />
+            <p className="text-white/60 font-semibold text-sm">Nenhuma viagem cadastrada</p>
+            <p className="text-white/30 text-xs leading-relaxed">
+              Envie um e-ticket ou itinerário para o chat e a Flyisa cadastra automaticamente
+            </p>
+            <button
+              onClick={() => setLocation("/")}
+              className="mt-1 px-5 py-2 rounded-xl text-sm font-semibold text-violet-300 transition-all active:scale-95"
+              style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}
+            >
+              Abrir chat
+            </button>
+          </div>
+        )}
+
+        {trips.map((trip) => {
+          const primary = trip.flights?.[0];
+          const fs = trip.flightStatus;
+          const delay = fs?.departure?.delay || 0;
+          const st = STATUS[trip.status || "upcoming"] ?? STATUS.upcoming;
+          const hasAlert = delay >= 15 || fs?.status === "cancelled";
+          const title = trip.destination || trip.route || (primary ? `${primary.from} → ${primary.to}` : "Viagem");
+
+          return (
+            <button
+              key={trip.id}
+              onClick={() => setLocation(`/trips/${trip.id}`)}
+              className="w-full rounded-2xl p-4 text-left transition-all active:scale-[0.98]"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: hasAlert
+                  ? "1px solid rgba(249,115,22,0.35)"
+                  : "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              {/* Row 1: title + status + arrow */}
+              <div className="flex items-start gap-2 mb-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-bold text-[15px] leading-snug truncate">{title}</p>
+                  {trip.departureDate && (
+                    <p className="text-white/35 text-[11px] mt-0.5">{trip.departureDate}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{ background: st.bg, color: st.color }}
+                  >
+                    {st.label}
+                  </span>
+                  {hasAlert ? (
+                    <AlertTriangle className="w-4 h-4 text-orange-400" />
+                  ) : fs?.status === "active" || fs?.status === "en-route" ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-white/20" />
+                  )}
+                </div>
+              </div>
+
+              {/* Row 2: details */}
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {primary && (
+                  <span className="flex items-center gap-1 text-[11px] text-white/45">
+                    <Plane className="w-3 h-3" />
+                    {primary.flight} · {primary.from} → {primary.to}
+                  </span>
+                )}
+                {(trip.gate || fs?.departure?.gate) && (
+                  <span className="flex items-center gap-1 text-[11px] text-white/45">
+                    <Clock className="w-3 h-3" />
+                    Portão {trip.gate || fs?.departure?.gate}
+                  </span>
+                )}
+                {trip.hotel?.name && (
+                  <span className="flex items-center gap-1 text-[11px] text-white/45">
+                    <Hotel className="w-3 h-3" />
+                    {trip.hotel.name}
+                  </span>
+                )}
+                {delay >= 15 && (
+                  <span className="flex items-center gap-1 text-[11px] text-orange-400 font-semibold">
+                    <AlertTriangle className="w-3 h-3" />
+                    +{delay} min
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <BottomNav active="trips" />
     </div>
   );
 }
