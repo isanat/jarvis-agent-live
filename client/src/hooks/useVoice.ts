@@ -11,13 +11,19 @@ export interface UseVoiceReturn {
   supported: { stt: boolean; tts: boolean };
 }
 
-export function useVoice(onFinalTranscript?: (t: string) => void): UseVoiceReturn {
+export function useVoice(
+  onFinalTranscript?: (t: string) => void,
+  onSpeechEnd?: () => void,
+): UseVoiceReturn {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const onFinalRef = useRef(onFinalTranscript);
+  const onSpeechEndRef = useRef(onSpeechEnd);
   onFinalRef.current = onFinalTranscript;
+  onSpeechEndRef.current = onSpeechEnd;
 
   const SRClass =
     typeof window !== 'undefined'
@@ -75,48 +81,95 @@ export function useVoice(onFinalTranscript?: (t: string) => void): UseVoiceRetur
     setIsListening(false);
   }, []);
 
+  // Browser TTS fallback
+  const browserSpeak = useCallback((text: string) => {
+    if (!ttsSupported || !text.trim()) { onSpeechEndRef.current?.(); return; }
+    window.speechSynthesis.cancel();
+    const clean = text
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/#{1,6}\s/g, '')
+      .replace(/\n+/g, '. ')
+      .slice(0, 600);
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 1.05;
+    utterance.pitch = 0.9;
+    utterance.volume = 1;
+    const assignVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const v =
+        voices.find((v) => v.lang === 'pt-BR') ||
+        voices.find((v) => v.lang.startsWith('pt')) ||
+        voices[0];
+      if (v) utterance.voice = v;
+    };
+    assignVoice();
+    if (!window.speechSynthesis.getVoices().length) {
+      window.speechSynthesis.addEventListener('voiceschanged', assignVoice, { once: true });
+    }
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => { setIsSpeaking(false); onSpeechEndRef.current?.(); };
+    utterance.onerror = () => { setIsSpeaking(false); onSpeechEndRef.current?.(); };
+    window.speechSynthesis.speak(utterance);
+  }, [ttsSupported]);
+
   const speak = useCallback(
-    (text: string) => {
-      if (!ttsSupported || !text.trim()) return;
-      window.speechSynthesis.cancel();
-
-      // Strip markdown
-      const clean = text
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/#{1,6}\s/g, '')
-        .replace(/\n+/g, '. ')
-        .slice(0, 600);
-
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = 'pt-BR';
-      utterance.rate = 1.05;
-      utterance.pitch = 0.9;
-      utterance.volume = 1;
-
-      const assignVoice = () => {
-        const voices = window.speechSynthesis.getVoices();
-        const v =
-          voices.find((v) => v.lang === 'pt-BR') ||
-          voices.find((v) => v.lang.startsWith('pt')) ||
-          voices[0];
-        if (v) utterance.voice = v;
-      };
-      assignVoice();
-      if (!window.speechSynthesis.getVoices().length) {
-        window.speechSynthesis.addEventListener('voiceschanged', assignVoice, { once: true });
+    async (text: string) => {
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
       }
+      if (ttsSupported) window.speechSynthesis.cancel();
+      if (!text.trim()) return;
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+
+      try {
+        const resp = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+        const data = await resp.json();
+
+        if (data.audioContent) {
+          // Google Chirp 3 HD
+          const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+          audioRef.current = audio;
+          audio.onended = () => {
+            audioRef.current = null;
+            setIsSpeaking(false);
+            onSpeechEndRef.current?.();
+          };
+          audio.onerror = () => {
+            audioRef.current = null;
+            setIsSpeaking(false);
+            onSpeechEndRef.current?.();
+          };
+          await audio.play();
+        } else {
+          // Fallback to browser TTS
+          setIsSpeaking(false);
+          browserSpeak(text);
+        }
+      } catch {
+        setIsSpeaking(false);
+        browserSpeak(text);
+      }
     },
-    [ttsSupported],
+    [ttsSupported, browserSpeak],
   );
 
   const cancelSpeech = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
     if (ttsSupported) window.speechSynthesis.cancel();
     setIsSpeaking(false);
   }, [ttsSupported]);

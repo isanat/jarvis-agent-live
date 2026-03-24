@@ -131,6 +131,59 @@ async function startServer() {
     }
   });
 
+  // ── Google Chirp 3 HD TTS ────────────────────────────────────────────────────
+  // Cache: mesma frase = mesmo áudio (economiza quota). Max 200 entradas, 1h TTL.
+  const ttsCache = new Map<string, { audio: string; expiresAt: number }>();
+
+  app.post("/api/tts", async (req, res) => {
+    const { text, voice = "pt-BR-Chirp3-HD-Aoede" } = req.body || {};
+    const apiKey = process.env.GOOGLE_TTS_API_KEY;
+
+    if (!apiKey) return res.json({ fallback: true });
+    if (!text?.trim()) return res.json({ fallback: true });
+
+    // Strip markdown + truncate 600 chars
+    const clean = String(text)
+      .replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1")
+      .replace(/`([^`]+)`/g, "$1").replace(/#{1,6}\s/g, "")
+      .replace(/\n+/g, ". ").slice(0, 600).trim();
+
+    const cacheKey = `${voice}:${clean}`;
+    const now = Date.now();
+    const hit = ttsCache.get(cacheKey);
+    if (hit && hit.expiresAt > now) {
+      console.log("[tts] HIT", voice);
+      return res.json({ audioContent: hit.audio });
+    }
+
+    try {
+      const resp = await fetch(
+        `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input: { text: clean },
+            voice: { languageCode: "pt-BR", name: voice },
+            audioConfig: { audioEncoding: "MP3", speakingRate: 1.0, pitch: 0.0 },
+          }),
+        }
+      );
+      const data = await resp.json();
+      if (data.audioContent) {
+        if (ttsCache.size >= 200) ttsCache.delete(ttsCache.keys().next().value!);
+        ttsCache.set(cacheKey, { audio: data.audioContent, expiresAt: now + 3_600_000 });
+        console.log("[tts] MISS → cached", voice);
+        return res.json({ audioContent: data.audioContent });
+      }
+      console.warn("[tts] Google API error:", data.error?.message);
+      return res.json({ fallback: true });
+    } catch (err) {
+      console.error("[tts] fetch error:", err);
+      return res.json({ fallback: true });
+    }
+  });
+
   // Docs process → forward multipart to upstream (no cache, use stream proxy)
   app.post("/api/docs/process", async (req, res) => {
     try {

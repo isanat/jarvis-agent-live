@@ -13,8 +13,8 @@ import { toast } from "sonner";
 import {
   Send, Mic, MicOff, Bell, BellRing, Plane, Settings,
   X, AlertTriangle, Info, LogOut, User, MessageCircle,
-  Volume2, VolumeX, Loader2, ChevronRight, Sparkles, MapPin,
-  Home as HomeIcon, Zap, ArrowLeft,
+  Loader2, ChevronRight, Sparkles, MapPin,
+  Zap, ArrowLeft,
 } from "lucide-react";
 
 // ── Animated Orb (CSS-only, used when sphere is hidden) ──────────────────────
@@ -149,17 +149,37 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"chat" | "trips" | "alerts" | "profile">("chat");
   // chatMode=false → esfera home (padrão sempre); chatMode=true → tela de chat
   const [chatMode, setChatMode] = useState(false);
-  const [autoSpeak, setAutoSpeak] = useState(false);
+  // voiceMode=true → loop de conversa natural com Chirp 3 HD
+  const [voiceMode, setVoiceMode] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceModeRef = useRef(false);
+
+  // ── Callback: Chirp terminou de falar → aguarda 1.5s e ouve novamente ──
+  const handleSpeechEnd = useCallback(() => {
+    if (!voiceModeRef.current) return;
+    listenTimerRef.current = setTimeout(() => {
+      startListening();
+      // Silêncio por 6s → para ouvir
+      listenTimerRef.current = setTimeout(() => stopListening(), 6000);
+    }, 1500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Voice ──
   const { isListening, isSpeaking, transcript, startListening, stopListening, speak, cancelSpeech, supported } =
-    useVoice((final) => {
-      if (final.trim()) setInputValue(final);
-    });
+    useVoice(
+      (final) => {
+        if (final.trim()) {
+          setInputValue(final);
+          if (listenTimerRef.current) clearTimeout(listenTimerRef.current);
+        }
+      },
+      handleSpeechEnd,
+    );
 
   // ── Auto-scroll ──
   useEffect(() => {
@@ -183,12 +203,16 @@ export default function Home() {
     }
   }, [notifications, setAgentState]);
 
-  // ── Auto-speak last assistant message ──
+  // ── Keep voiceModeRef in sync ──
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+
+  // ── Auto-speak last assistant message (voice mode) ──
   useEffect(() => {
-    if (!autoSpeak || !supported.tts || loading) return;
+    if (!voiceMode || loading) return;
     const last = messages[messages.length - 1];
     if (last?.role === "assistant" && last.content) speak(last.content);
-  }, [messages, loading, autoSpeak, speak, supported.tts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, loading, voiceMode]);
 
   // ── Toast for new notification ──
   useEffect(() => {
@@ -216,6 +240,7 @@ export default function Home() {
       if (!msg || loading) return;
       setInputValue("");
       cancelSpeech();
+      if (listenTimerRef.current) clearTimeout(listenTimerRef.current);
       setChatMode(true); // entra no modo chat ao enviar
       try { await sendMessage(msg); }
       catch { toast.error("Falha ao enviar mensagem."); }
@@ -304,21 +329,27 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1">
-          {/* TTS toggle */}
-          {supported.tts && (
+          {/* Voice mode indicator */}
+          {voiceMode && (
             <button
-              onClick={() => { setAutoSpeak((v) => !v); cancelSpeech(); }}
-              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all"
-              style={{ background: autoSpeak ? "rgba(124,58,237,0.3)" : "rgba(255,255,255,0.05)" }}
-              title={autoSpeak ? "Silenciar Flyisa" : "Flyisa falar"}
+              onClick={() => { setVoiceMode(false); cancelSpeech(); stopListening(); if (listenTimerRef.current) clearTimeout(listenTimerRef.current); }}
+              className="flex items-center gap-1.5 px-3 h-9 rounded-xl transition-all"
+              style={{ background: "rgba(124,58,237,0.3)", border: "1px solid rgba(124,58,237,0.5)" }}
+              title="Sair do modo voz"
             >
               {isSpeaking ? (
-                <Volume2 className="w-4 h-4 text-violet-400" />
-              ) : autoSpeak ? (
-                <Volume2 className="w-4 h-4 text-violet-300" />
+                <div className="flex items-center gap-[3px]">
+                  {[0,0.1,0.2].map((d,i) => (
+                    <div key={i} className="w-[2px] h-3 rounded-full bg-violet-300 animate-voice-bar" style={{ animationDelay: `${d}s` }} />
+                  ))}
+                </div>
+              ) : isListening ? (
+                <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
               ) : (
-                <VolumeX className="w-4 h-4 text-white/40" />
+                <Mic className="w-3.5 h-3.5 text-violet-300" />
               )}
+              <span className="text-violet-300 text-[11px] font-medium">Voz</span>
+              <X className="w-3 h-3 text-violet-400/60" />
             </button>
           )}
 
@@ -453,6 +484,30 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
+
+                  {/* ── Grande botão de microfone (modo voz-first) ── */}
+                  {!voiceMode && (
+                    <div className="flex flex-col items-center gap-2 py-3">
+                      <button
+                        onClick={() => {
+                          setVoiceMode(true);
+                          setChatMode(true);
+                          setTimeout(() => startListening(), 300);
+                        }}
+                        className="relative flex items-center justify-center rounded-full transition-all active:scale-90"
+                        style={{
+                          width: 64, height: 64,
+                          background: "linear-gradient(135deg,#7c3aed,#3b82f6)",
+                          boxShadow: "0 0 32px rgba(124,58,237,0.55)",
+                        }}
+                        title="Falar com Flyisa"
+                      >
+                        <div className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ background: "rgba(124,58,237,0.8)", animationDuration: "2.5s" }} />
+                        <Mic className="w-7 h-7 text-white relative" />
+                      </button>
+                      <p className="text-white/30 text-[11px] tracking-wide">Toque para falar</p>
+                    </div>
+                  )}
 
                   {/* ── FEED PROATIVO: cards gerados pela Flyisa ── */}
                   {proactiveCards.length > 0 ? (
