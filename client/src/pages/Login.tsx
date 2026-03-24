@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'wouter';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 // Traduz códigos de erro Firebase → mensagem clara em português
@@ -12,9 +12,9 @@ function firebaseError(code: string): string {
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-      return 'E-mail ou senha incorretos. Verifique os dados ou crie uma nova conta.';
+      return 'E-mail ou senha incorretos. Verifique os dados ou use "Esqueceu a senha?".';
     case 'auth/email-already-in-use':
-      return 'Este e-mail já está cadastrado. Tente entrar com a senha.';
+      return 'Este e-mail já está cadastrado. Tente entrar ou use "Esqueceu a senha?".';
     case 'auth/weak-password':
       return 'A senha deve ter pelo menos 6 caracteres.';
     case 'auth/invalid-email':
@@ -42,8 +42,9 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showReset, setShowReset] = useState(false);
 
-  if (user) { setLocation('/chat'); return null; }
+  if (user) { setLocation('/'); return null; }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,15 +55,20 @@ export default function Login() {
         toast.success('Conta criada com sucesso!');
       } else {
         await signIn(email, password);
-        toast.success('Bem-vindo ao Flyisa!');
+        toast.success('Bem-vinda ao Flyisa!');
       }
-      setLocation('/chat');
+      setLocation('/');
     } catch (error: any) {
-      const msg = firebaseError(error.code || '');
+      const code = error.code || '';
+      const msg = firebaseError(code);
       toast.error(msg, { duration: 6000 });
-      // Se credencial inválida no login, sugere criar conta
-      if (!isSignUp && (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found')) {
-        setIsSignUp(true);
+      // Se email já existe no signup, voltar para login
+      if (isSignUp && code === 'auth/email-already-in-use') {
+        setIsSignUp(false);
+      }
+      // Mostrar opção de reset de senha em falhas de login
+      if (!isSignUp && (code === 'auth/invalid-credential' || code === 'auth/wrong-password')) {
+        setShowReset(true);
       }
     } finally {
       setLoading(false);
@@ -73,8 +79,25 @@ export default function Login() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      toast.success('Bem-vindo ao Flyisa!');
-      setLocation('/chat');
+      toast.success('Bem-vinda ao Flyisa!');
+      setLocation('/');
+    } catch (error: any) {
+      toast.error(firebaseError(error.code || ''), { duration: 6000 });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      toast.error('Digite seu e-mail acima primeiro.', { duration: 4000 });
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast.success('E-mail de redefinição enviado! Verifique sua caixa de entrada.', { duration: 8000 });
+      setShowReset(false);
     } catch (error: any) {
       toast.error(firebaseError(error.code || ''), { duration: 6000 });
     } finally {
@@ -174,6 +197,19 @@ export default function Login() {
             </button>
           </form>
 
+          {/* Esqueceu a senha */}
+          {showReset && !isSignUp && (
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              disabled={loading}
+              className="text-center text-xs transition-colors underline underline-offset-2"
+              style={{ color: 'rgba(147,197,253,0.9)' }}
+            >
+              Esqueceu a senha? Redefinir por e-mail
+            </button>
+          )}
+
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
@@ -208,7 +244,7 @@ export default function Login() {
           {/* Toggle sign-up / sign-in */}
           <button
             type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() => { setIsSignUp(!isSignUp); setShowReset(false); }}
             disabled={loading}
             className="text-center text-xs transition-colors"
             style={{ color: 'rgba(167,139,250,0.8)' }}
