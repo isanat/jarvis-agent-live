@@ -139,7 +139,10 @@ async function startServer() {
     const { text, voice = "pt-BR-Chirp3-HD-Aoede" } = req.body || {};
     const apiKey = process.env.GOOGLE_TTS_API_KEY;
 
-    if (!apiKey) return res.json({ fallback: true });
+    if (!apiKey) {
+      console.warn("[tts] GOOGLE_TTS_API_KEY not set — returning fallback");
+      return res.json({ fallback: true });
+    }
     if (!text?.trim()) return res.json({ fallback: true });
 
     // Strip markdown + truncate 600 chars
