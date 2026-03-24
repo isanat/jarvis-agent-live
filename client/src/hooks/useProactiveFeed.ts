@@ -45,8 +45,12 @@ function today(): string {
 
 function hoursUntil(dateStr?: string): number | null {
   if (!dateStr) return null;
-  const diff = new Date(dateStr).getTime() - Date.now();
-  return diff / 3_600_000;
+  try {
+    const diff = new Date(dateStr).getTime() - Date.now();
+    return isNaN(diff) ? null : diff / 3_600_000;
+  } catch {
+    return null;
+  }
 }
 
 function currentHour(): number {
@@ -55,6 +59,14 @@ function currentHour(): number {
 
 function greetingKey(userId: string, tripId: string, trigger: string): string {
   return `flyisa_greeted_${userId}_${tripId}_${trigger}_${today()}`;
+}
+
+// localStorage wrappers — safe in all contexts (private mode, iOS restrictions, etc.)
+function lsGet(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function lsSet(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* silently ignore */ }
 }
 
 // ── Hook principal ─────────────────────────────────────────────────────────
@@ -69,13 +81,14 @@ export function useProactiveFeed(
 
   // ── Gera cards e saudação proativa ──────────────────────────────────────
   useEffect(() => {
+    try {
     const generated: ProactiveCard[] = [];
     let chosenGreeting: FlyisaGreeting | null = null;
 
     const tryGreeting = (key: string, message: string, urgent: boolean) => {
       if (!userId || !activeTrip) return;
       const full = greetingKey(userId, activeTrip.id ?? "notrip", key);
-      if (localStorage.getItem(full)) return; // já mostrou hoje
+      if (lsGet(full)) return; // já mostrou hoje
       chosenGreeting = { key: full, message, urgent };
     };
 
@@ -305,12 +318,17 @@ export function useProactiveFeed(
       setGreeting(null);
       setHasNewGreeting(false);
     }
+    } catch (err) {
+      // Nunca deve travar o app por causa do feed proativo
+      console.warn('[useProactiveFeed]', err);
+      setCards([]);
+    }
   }, [activeTrip, userId]);
 
   // Marca a saudação como lida (persiste no localStorage)
   const markGreetingRead = useCallback(() => {
     if (!greeting) return;
-    localStorage.setItem(greeting.key, "1");
+    lsSet(greeting.key, "1");
     setHasNewGreeting(false);
   }, [greeting]);
 
