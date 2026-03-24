@@ -13,7 +13,7 @@ import {
   Send, Mic, MicOff, Bell, BellRing, Plane, Settings,
   X, AlertTriangle, Info, LogOut, User, MessageCircle,
   Volume2, VolumeX, Loader2, ChevronRight, Sparkles, MapPin,
-  Home, Zap, ArrowLeft,
+  Home as HomeIcon, Zap, ArrowLeft,
 } from "lucide-react";
 
 // ── Animated Orb (CSS-only, used when sphere is hidden) ──────────────────────
@@ -261,7 +261,7 @@ export default function Home() {
 
   // ── Nav tabs ──
   const NAV = [
-    { key: "chat",    icon: Home,          label: "Início" },
+    { key: "chat",    icon: HomeIcon,       label: "Início" },
     { key: "trips",   icon: Plane,         label: "Viagens" },
     { key: "alerts",  icon: unreadCount > 0 ? BellRing : Bell, label: "Alertas", badge: unreadCount },
     { key: "profile", icon: User,          label: "Perfil" },
@@ -814,7 +814,8 @@ export default function Home() {
         className="glass-dark pb-safe shrink-0 flex justify-around items-center px-2 pt-2"
         style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
       >
-        {NAV.map(({ key, icon: Icon, label, badge }) => {
+        {NAV.map(({ key, icon: Icon, label, ...rest }) => {
+          const badge = (rest as any).badge;
           const active = activeTab === key;
           return (
             <button

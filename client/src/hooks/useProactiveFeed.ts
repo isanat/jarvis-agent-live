@@ -187,7 +187,7 @@ export function useProactiveFeed(
         ? currentHour() >= parseInt(arrivalTime.split(":")[0], 10)
         : false;
 
-    if (tripIsActive && (arrivalPassed || depDate < today())) {
+    if (tripIsActive && (arrivalPassed || (depDate != null && depDate < today()))) {
       if (hotel?.name) {
         generated.push({
           id: "hotel_route",
