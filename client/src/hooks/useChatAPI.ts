@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -39,26 +39,9 @@ export function useChatAPI(): UseChatAPIReturn {
   const [activeTrip, setActiveTrip] = useState<object | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // ── Load chat history from Firestore on mount ──
+  // ── Session starts fresh — mark history as loaded without restoring UI ──
   useEffect(() => {
-    if (!user) return;
-    const load = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'chats', user.uid));
-        if (snap.exists()) {
-          const data = snap.data() as { messages?: ChatMessage[] };
-          if (Array.isArray(data.messages) && data.messages.length > 0) {
-            // Strip runtime-only fields before restoring
-            setMessages(data.messages.map(({ role, content }) => ({ role, content })));
-          }
-        }
-      } catch {
-        // Silently ignore — user will start fresh
-      } finally {
-        setHistoryLoaded(true);
-      }
-    };
-    load();
+    if (user) setHistoryLoaded(true);
   }, [user]);
 
   // ── Save messages to Firestore whenever they change ──
