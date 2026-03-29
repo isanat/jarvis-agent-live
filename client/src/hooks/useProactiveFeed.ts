@@ -25,6 +25,7 @@ export interface ProactiveCard {
     | "transport_timing"
     | "transfer_arrival"
     | "return_transport"
+    | "health_quick"
     | "general";
   priority: number;       // 1 = mais urgente
   icon: string;
@@ -355,7 +356,21 @@ export function useProactiveFeed(
       });
     }
 
-    // 10 ── Clima sempre disponível em viagem ativa ────────────────────
+    // 10 ── Saúde & Emergência — acesso rápido sempre em viagem ativa ───
+    if (tripIsActive) {
+      generated.push({
+        id: "health_quick",
+        type: "health_quick",
+        priority: 7,
+        icon: "🏥",
+        title: "Saúde & Emergência",
+        subtitle: `Farmácia, hospital ou embaixada em ${dest}`,
+        accent: "rgba(239,68,68,0.10)",
+        query: `Estou em ${dest}. Pode me mostrar: 1) farmácia 24h mais próxima, 2) hospital ou UPA mais próximos, 3) número de emergência local e contato da embaixada brasileira?`,
+      });
+    }
+
+    // 12 ── Clima sempre disponível em viagem ativa ────────────────────
     if (tripIsActive || depDate === today()) {
       generated.push({
         id: "weather",

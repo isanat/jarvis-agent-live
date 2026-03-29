@@ -329,6 +329,29 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* SOS — visible only during active trip */}
+          {activeTrip && (
+            <button
+              onClick={() => {
+                cancelSpeech();
+                setChatMode(true);
+                const dest = (activeTrip as any).destination || (activeTrip as any).route || "meu destino";
+                setTimeout(() => {
+                  sendMessage(`Preciso de ajuda em ${dest}. Pode me mostrar: farmácia 24h mais próxima, hospital ou UPA mais próximos, e número de emergência local?`).catch(() => {});
+                }, 80);
+              }}
+              className="flex items-center justify-center rounded-xl transition-all active:scale-90"
+              style={{
+                width: 38, height: 38,
+                background: "rgba(239,68,68,0.18)",
+                border: "1px solid rgba(239,68,68,0.35)",
+              }}
+              title="Saúde & Emergência"
+            >
+              <span className="text-red-400 text-[11px] font-extrabold tracking-tight">SOS</span>
+            </button>
+          )}
+
           {/* Voice mode indicator */}
           {voiceMode && (
             <button
