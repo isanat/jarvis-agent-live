@@ -4,7 +4,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { BottomNav } from "@/components/BottomNav";
-import { Plane, Hotel, Clock, AlertTriangle, CheckCircle, Loader2, Plus, ChevronRight } from "lucide-react";
+import { Plane, Hotel, Clock, AlertTriangle, CheckCircle, Loader2, Plus, ChevronRight, History } from "lucide-react";
 
 interface TripFlight {
   flight: string;
@@ -36,11 +36,20 @@ const STATUS: Record<string, { label: string; color: string; bg: string }> = {
   cancelled: { label: "Cancelada",     color: "#ef4444", bg: "rgba(239,68,68,0.15)"   },
 };
 
+const todayStr = new Date().toISOString().slice(0, 10);
+
+function isTripPast(trip: Trip): boolean {
+  // A trip is past if its end date (returnDate or departureDate) is before today
+  const end = trip.returnDate || trip.departureDate || "";
+  return end !== "" && end < todayStr;
+}
+
 export default function TripsPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -54,6 +63,9 @@ export default function TripsPage() {
       setLoading(false);
     });
   }, [user?.uid]);
+
+  const upcomingTrips = trips.filter((t) => !isTripPast(t));
+  const pastTrips = trips.filter((t) => isTripPast(t));
 
   return (
     <div
@@ -71,7 +83,7 @@ export default function TripsPage() {
         <div>
           <p className="text-white font-extrabold text-xl">Minhas Viagens</p>
           <p className="text-white/40 text-xs mt-0.5">
-            {loading ? "Carregando..." : `${trips.length} viagem${trips.length !== 1 ? "s" : ""}`}
+            {loading ? "Carregando..." : `${upcomingTrips.length} próxima${upcomingTrips.length !== 1 ? "s" : ""}`}
           </p>
         </div>
         <button
@@ -92,13 +104,13 @@ export default function TripsPage() {
           </div>
         )}
 
-        {!loading && trips.length === 0 && (
+        {!loading && upcomingTrips.length === 0 && (
           <div
             className="rounded-2xl p-8 flex flex-col items-center text-center gap-3 mt-4"
             style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
           >
             <Plane className="w-10 h-10 text-white/15" />
-            <p className="text-white/60 font-semibold text-sm">Nenhuma viagem cadastrada</p>
+            <p className="text-white/60 font-semibold text-sm">Nenhuma viagem próxima</p>
             <p className="text-white/30 text-xs leading-relaxed">
               Envie um e-ticket ou itinerário para o chat e a Flyisa cadastra automaticamente
             </p>
@@ -112,7 +124,7 @@ export default function TripsPage() {
           </div>
         )}
 
-        {trips.map((trip) => {
+        {upcomingTrips.map((trip) => {
           const primary = trip.flights?.[0];
           const fs = trip.flightStatus;
           const delay = fs?.departure?.delay || 0;
@@ -187,6 +199,55 @@ export default function TripsPage() {
             </button>
           );
         })}
+
+        {/* ── Histórico de viagens passadas ── */}
+        {!loading && pastTrips.length > 0 && (
+          <div className="mt-4">
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              className="flex items-center gap-2 w-full px-1 py-2 text-left"
+            >
+              <History className="w-3.5 h-3.5 text-white/30" />
+              <span className="text-white/30 text-xs font-medium">
+                Histórico ({pastTrips.length} viagem{pastTrips.length !== 1 ? "s" : ""} passada{pastTrips.length !== 1 ? "s" : ""})
+              </span>
+              <ChevronRight
+                className="w-3.5 h-3.5 text-white/20 ml-auto transition-transform"
+                style={{ transform: showHistory ? "rotate(90deg)" : "none" }}
+              />
+            </button>
+
+            {showHistory && (
+              <div className="flex flex-col gap-2.5 mt-1 opacity-60">
+                {pastTrips.map((trip) => {
+                  const primary = trip.flights?.[0];
+                  const title = trip.destination || trip.route || (primary ? `${primary.from} → ${primary.to}` : "Viagem");
+                  return (
+                    <button
+                      key={trip.id}
+                      onClick={() => setLocation(`/trips/${trip.id}`)}
+                      className="w-full rounded-2xl p-4 text-left transition-all active:scale-[0.98]"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white/60 font-semibold text-[13px] truncate">{title}</p>
+                          <p className="text-white/25 text-[11px] mt-0.5">
+                            {trip.departureDate}{trip.returnDate && trip.returnDate !== trip.departureDate ? ` → ${trip.returnDate}` : ""}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0"
+                          style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.35)" }}>
+                          Concluída
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <BottomNav active="trips" />

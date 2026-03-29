@@ -74,15 +74,30 @@ export function useChatAPI(): UseChatAPIReturn {
       limit(1),
     );
 
+    // Today in YYYY-MM-DD — trips whose returnDate (or departureDate) is in the
+    // past are excluded even if their status was never updated to "completed".
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const pickActiveTrip = (docs: any[]) => {
+      const future = docs
+        .map((d: any) => ({ id: d.id, ...d.data() }))
+        .filter((t: any) => {
+          // Keep trip if its end date (returnDate or departureDate) is today or later
+          const end = t.returnDate || t.departureDate || '';
+          return end >= todayStr;
+        })
+        .sort((a: any, b: any) => {
+          const da = a.departureDate || '';
+          const db_ = b.departureDate || '';
+          return da < db_ ? -1 : da > db_ ? 1 : 0;
+        });
+      return future.length > 0 ? future[0] : null;
+    };
+
     const unsub = onSnapshot(
       q,
       (snap) => {
-        if (!snap.empty) {
-          const d = snap.docs[0];
-          setActiveTrip({ id: d.id, ...d.data() });
-        } else {
-          setActiveTrip(null);
-        }
+        setActiveTrip(snap.empty ? null : pickActiveTrip(snap.docs));
       },
       (err) => {
         // Index may not exist yet — fall back to simpler query without orderBy
@@ -91,22 +106,10 @@ export function useChatAPI(): UseChatAPIReturn {
           collection(db, 'trips'),
           where('userId', '==', user.uid),
           where('status', 'in', ['active', 'upcoming']),
-          limit(5),
+          limit(10),
         );
         onSnapshot(fallback, (snap) => {
-          if (!snap.empty) {
-            // Sort client-side
-            const sorted = snap.docs
-              .map((d) => ({ id: d.id, ...d.data() }))
-              .sort((a: any, b: any) => {
-                const da = a.departureDate || '';
-                const db_ = b.departureDate || '';
-                return da < db_ ? -1 : da > db_ ? 1 : 0;
-              });
-            setActiveTrip(sorted[0]);
-          } else {
-            setActiveTrip(null);
-          }
+          setActiveTrip(snap.empty ? null : pickActiveTrip(snap.docs));
         });
       },
     );
