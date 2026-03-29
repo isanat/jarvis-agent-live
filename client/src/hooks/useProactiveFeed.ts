@@ -22,6 +22,9 @@ export interface ProactiveCard {
     | "ask_hotel"
     | "ask_return_flight"
     | "weather"
+    | "transport_timing"
+    | "transfer_arrival"
+    | "return_transport"
     | "general";
   priority: number;       // 1 = mais urgente
   icon: string;
@@ -160,6 +163,26 @@ export function useProactiveFeed(
       );
     }
 
+    // 2b ── Transporte para o aeroporto (4–8h antes do voo) ─────────────
+    if (hoursToFlight !== null && hoursToFlight > 3 && hoursToFlight <= 8 && depDate === today()) {
+      const depAirport = firstFlight?.from ?? "o aeroporto";
+      generated.push({
+        id: "transport_timing",
+        type: "transport_timing",
+        priority: 2,
+        icon: "🚗",
+        title: "Organize o transporte para o aeroporto",
+        subtitle: `Voo às ${firstFlight?.depart ?? "—"}h · ${Math.floor(hoursToFlight)}h para embarcar`,
+        accent: "rgba(59,130,246,0.15)",
+        query: `Meu voo ${firstFlight?.flight ?? ""} parte às ${firstFlight?.depart ?? "—"}h do aeroporto ${depAirport}. Qual o horário ideal para sair agora considerando o trânsito? Também me diz as opções: Uber, taxi ou transporte público.`,
+      });
+      tryGreeting(
+        "transport_timing",
+        `🚗 Seu voo parte em ${Math.floor(hoursToFlight)}h. Já organizou o transporte para o aeroporto ${depAirport}? Posso calcular o horário ideal de saída com base no trânsito agora.`,
+        false,
+      );
+    }
+
     // 3 ── Dia da partida ──────────────────────────────────────────────
     if (depDate === today() && (hoursToFlight === null || hoursToFlight > 3)) {
       generated.push({
@@ -205,6 +228,19 @@ export function useProactiveFeed(
           false,
         );
       }
+
+      // Transfer do aeroporto (card separado para opções de transporte)
+      const arrivalAirport = firstFlight?.to ?? "";
+      generated.push({
+        id: "transfer_airport",
+        type: "transfer_arrival",
+        priority: 2,
+        icon: "🛬",
+        title: "Transfer do aeroporto para o hotel",
+        subtitle: `${hotel?.name ?? dest} — compare opções`,
+        accent: "rgba(124,58,237,0.15)",
+        query: `Acabei de pousar em ${dest}${arrivalAirport ? ` no aeroporto ${arrivalAirport}` : ""}. Quais são as opções de transporte até o hotel ${hotel?.name ?? dest}? Compara Uber, taxi, metro e shuttle com preço estimado e tempo.`,
+      });
     }
 
     // 5 ── Check-in hoje ───────────────────────────────────────────────
@@ -240,6 +276,33 @@ export function useProactiveFeed(
       tryGreeting(
         "checkout_tomorrow",
         `Lembrete! ⏰ Seu checkout no ${hotel.name ?? "hotel"} é amanhã. Já tem transporte para o aeroporto ou precisa que eu ajude?`,
+        false,
+      );
+    }
+
+    // 6b ── Transporte de volta ao aeroporto (≤ 24h antes do voo de retorno) ─
+    const returnFlight = flights.length > 1 ? flights[flights.length - 1] : null;
+    const returnFlightDate = returnFlight?.date ?? returnDate;
+    const hoursToReturn = hoursUntil(
+      returnFlightDate
+        ? `${returnFlightDate}T${returnFlight?.depart ?? "12:00"}:00`
+        : undefined,
+    );
+
+    if (hoursToReturn !== null && hoursToReturn > 0 && hoursToReturn <= 24) {
+      generated.push({
+        id: "return_transport",
+        type: "return_transport",
+        priority: 3,
+        icon: "🔄",
+        title: "Transporte de volta ao aeroporto",
+        subtitle: `Voo de retorno em ${hoursToReturn <= 12 ? "menos de 12h" : "menos de 24h"}`,
+        accent: "rgba(251,191,36,0.12)",
+        query: `Meu voo de retorno ${returnFlight?.flight ?? ""} parte às ${returnFlight?.depart ?? "—"}h${returnFlight?.from ? ` do aeroporto ${returnFlight.from}` : ""}. Estou no hotel ${hotel?.name ?? dest}. Como organizo o transporte? Qual horário devo sair?`,
+      });
+      tryGreeting(
+        "return_transport",
+        `↩️ Lembrete de retorno! Seu voo de volta ${returnFlight?.flight ? `(${returnFlight.flight})` : ""} parte em breve. Já organizou o transporte do ${hotel?.name ?? "hotel"} para o aeroporto?`,
         false,
       );
     }
