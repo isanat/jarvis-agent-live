@@ -434,103 +434,140 @@ export default function Home() {
                     {/* Canvas neural network background */}
                     <NeuralPulse />
 
-                    {/* Centre overlay: glowing ring + lightning icon (like mockup) */}
+                    {/* Centre overlay: mic integrado + rings */}
                     <div
-                      className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                      className="absolute inset-0 flex flex-col items-center justify-center"
                       style={{ zIndex: 10 }}
                     >
                       {/* Outer glow blur */}
                       <div
-                        className="absolute rounded-full"
+                        className="absolute rounded-full pointer-events-none"
                         style={{
-                          width: 140, height: 140,
+                          width: 160, height: 160,
                           background:
-                            agentState === "thinking" || agentState === "searching"
+                            isListening
+                              ? "radial-gradient(circle, rgba(239,68,68,0.28) 0%, transparent 70%)"
+                              : isSpeaking
+                              ? "radial-gradient(circle, rgba(124,58,237,0.30) 0%, transparent 70%)"
+                              : agentState === "thinking" || agentState === "searching"
                               ? "radial-gradient(circle, rgba(0,220,255,0.22) 0%, transparent 70%)"
-                              : agentState === "alert"
-                              ? "radial-gradient(circle, rgba(239,68,68,0.22) 0%, transparent 70%)"
                               : "radial-gradient(circle, rgba(150,100,255,0.22) 0%, transparent 70%)",
-                          filter: "blur(16px)",
-                          transition: "background 0.8s ease",
+                          filter: "blur(18px)",
+                          transition: "background 0.6s ease",
                         }}
                       />
-                      {/* Ring */}
+                      {/* Outer ring */}
                       <div
-                        className="absolute rounded-full"
+                        className="absolute rounded-full pointer-events-none"
                         style={{
-                          width: 100, height: 100,
-                          border: agentState === "thinking" || agentState === "searching"
+                          width: 108, height: 108,
+                          border: isListening
+                            ? "1.5px solid rgba(239,68,68,0.5)"
+                            : isSpeaking
+                            ? "1.5px solid rgba(124,58,237,0.6)"
+                            : agentState === "thinking" || agentState === "searching"
                             ? "1.5px solid rgba(0,220,255,0.45)"
-                            : agentState === "alert"
-                            ? "1.5px solid rgba(239,68,68,0.45)"
-                            : "1.5px solid rgba(150,100,255,0.45)",
-                          boxShadow: "0 0 24px 6px rgba(150,100,255,0.15)",
-                          transition: "border-color 0.6s ease",
+                            : "1.5px solid rgba(150,100,255,0.35)",
+                          boxShadow: isListening
+                            ? "0 0 28px 6px rgba(239,68,68,0.15)"
+                            : "0 0 24px 6px rgba(150,100,255,0.12)",
+                          transition: "all 0.5s ease",
                         }}
                       />
-                      {/* Lightning icon */}
-                      <div
-                        className="relative flex items-center justify-center rounded-full"
-                        style={{
-                          width: 64, height: 64,
-                          background: "rgba(0,0,0,0.4)",
-                          backdropFilter: "blur(8px)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                        }}
-                      >
-                        <Zap
-                          className="w-8 h-8"
+                      {/* Inner ring (pulsing when listening) */}
+                      {isListening && (
+                        <div
+                          className="absolute rounded-full animate-ping pointer-events-none"
                           style={{
-                            color:
-                              agentState === "thinking" || agentState === "searching"
-                                ? "#00DCFF"
-                                : agentState === "alert"
-                                ? "#EF4444"
-                                : "#9664FF",
-                            filter: "drop-shadow(0 0 8px currentColor)",
-                            transition: "color 0.5s ease",
+                            width: 108, height: 108,
+                            border: "1px solid rgba(239,68,68,0.3)",
+                            animationDuration: "1.2s",
                           }}
                         />
-                      </div>
+                      )}
 
-                      {/* Status pill below icon */}
-                      <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full"
-                        style={{ background: "rgba(0,255,150,0.12)", border: "1px solid rgba(0,255,150,0.25)" }}
+                      {/* ── MIC BUTTON (centro da esfera) ── */}
+                      <button
+                        onClick={() => {
+                          if (voiceMode) {
+                            // Em voice mode: toggle listening
+                            if (isListening) stopListening();
+                            else startListening();
+                          } else {
+                            setVoiceMode(true);
+                            setChatMode(true);
+                            setTimeout(() => startListening(), 300);
+                          }
+                        }}
+                        className="relative flex items-center justify-center rounded-full transition-all active:scale-90"
+                        style={{
+                          width: 72, height: 72,
+                          background: isListening
+                            ? "linear-gradient(135deg,#ef4444,#dc2626)"
+                            : isSpeaking
+                            ? "linear-gradient(135deg,#7c3aed,#6d28d9)"
+                            : "rgba(0,0,0,0.45)",
+                          backdropFilter: "blur(10px)",
+                          border: isListening
+                            ? "none"
+                            : "1px solid rgba(255,255,255,0.12)",
+                          boxShadow: isListening
+                            ? "0 0 24px rgba(239,68,68,0.6)"
+                            : isSpeaking
+                            ? "0 0 24px rgba(124,58,237,0.6)"
+                            : "none",
+                          transition: "all 0.3s ease",
+                        }}
+                        title={isListening ? "Parar" : "Falar com Flyisa"}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse block" />
-                        <span className="text-emerald-400 text-[11px] font-medium tracking-wide">
-                          {agentState === "thinking" ? "Processando..." :
+                        {isSpeaking ? (
+                          /* Waveform bars while speaking */
+                          <div className="flex items-center gap-[3px]">
+                            {[0,0.1,0.2,0.1,0].map((d, i) => (
+                              <div key={i} className="w-[3px] rounded-full bg-white animate-voice-bar"
+                                style={{ height: 16, animationDelay: `${d}s` }} />
+                            ))}
+                          </div>
+                        ) : isListening ? (
+                          <MicOff className="w-7 h-7 text-white" />
+                        ) : agentState === "thinking" || agentState === "searching" ? (
+                          <Loader2 className="w-7 h-7 animate-spin"
+                            style={{ color: "#00DCFF" }} />
+                        ) : (
+                          <Mic className="w-7 h-7"
+                            style={{ color: "#9664FF", filter: "drop-shadow(0 0 6px #9664FF)" }} />
+                        )}
+                      </button>
+
+                      {/* Status pill */}
+                      <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full"
+                        style={{
+                          background: isListening
+                            ? "rgba(239,68,68,0.15)"
+                            : isSpeaking
+                            ? "rgba(124,58,237,0.18)"
+                            : "rgba(0,255,150,0.10)",
+                          border: isListening
+                            ? "1px solid rgba(239,68,68,0.3)"
+                            : isSpeaking
+                            ? "1px solid rgba(124,58,237,0.35)"
+                            : "1px solid rgba(0,255,150,0.22)",
+                        }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse block"
+                          style={{ background: isListening ? "#ef4444" : isSpeaking ? "#a78bfa" : "#34d399" }} />
+                        <span className="text-[11px] font-medium tracking-wide"
+                          style={{ color: isListening ? "#f87171" : isSpeaking ? "#c4b5fd" : "#6ee7b7" }}>
+                          {isListening ? "Ouvindo..." :
+                           isSpeaking ? "Flyisa falando..." :
+                           agentState === "thinking" ? "Processando..." :
                            agentState === "searching" ? "Buscando..." :
                            agentState === "alert" ? "Atenção!" :
-                           "Online"}
+                           "Toque para falar"}
                         </span>
                       </div>
                     </div>
                   </div>
-
-                  {/* ── Grande botão de microfone (modo voz-first) ── */}
-                  {!voiceMode && (
-                    <div className="flex flex-col items-center gap-2 py-3">
-                      <button
-                        onClick={() => {
-                          setVoiceMode(true);
-                          setChatMode(true);
-                          setTimeout(() => startListening(), 300);
-                        }}
-                        className="relative flex items-center justify-center rounded-full transition-all active:scale-90"
-                        style={{
-                          width: 64, height: 64,
-                          background: "linear-gradient(135deg,#7c3aed,#3b82f6)",
-                          boxShadow: "0 0 32px rgba(124,58,237,0.55)",
-                        }}
-                        title="Falar com Flyisa"
-                      >
-                        <div className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ background: "rgba(124,58,237,0.8)", animationDuration: "2.5s" }} />
-                        <Mic className="w-7 h-7 text-white relative" />
-                      </button>
-                      <p className="text-white/30 text-[11px] tracking-wide">Toque para falar</p>
-                    </div>
-                  )}
 
                   {/* ── FEED PROATIVO: cards gerados pela Flyisa ── */}
                   {proactiveCards.length > 0 ? (
@@ -576,21 +613,25 @@ export default function Home() {
                       </div>
                     </div>
                   ) : (
-                    /* Sem viagem: sugestões padrão em grid 2x2 */
-                    <div className="w-full px-4 grid grid-cols-2 gap-2.5 mb-4">
+                    /* Sem viagem: chips em scroll horizontal */
+                    <div
+                      className="w-full flex gap-2.5 overflow-x-auto px-4 pb-2 mb-2"
+                      style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+                    >
                       {SUGGESTIONS.map((s) => (
                         <button
                           key={s.label}
                           onClick={() => { setInputValue(s.label); inputRef.current?.focus(); }}
-                          className="relative rounded-2xl p-3 text-left transition-all active:scale-95 overflow-hidden flex items-center gap-2.5"
+                          className="relative shrink-0 flex flex-col items-center gap-1.5 px-4 py-3 rounded-2xl transition-all active:scale-95 overflow-hidden"
                           style={{
-                            background: "rgba(255,255,255,0.045)",
-                            border: "1px solid rgba(255,255,255,0.09)",
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            minWidth: 88,
                           }}
                         >
-                          <div className="absolute -top-3 -left-3 w-14 h-14 rounded-full pointer-events-none" style={{ background: s.accent, filter: "blur(12px)" }} />
-                          <span className="relative text-xl shrink-0">{s.icon}</span>
-                          <p className="relative text-white/80 text-[11px] leading-snug font-medium">{s.label}</p>
+                          <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: s.accent, opacity: 0.35 }} />
+                          <span className="relative text-2xl leading-none">{s.icon}</span>
+                          <p className="relative text-white/70 text-[10px] leading-snug font-medium text-center whitespace-nowrap">{s.label}</p>
                         </button>
                       ))}
                     </div>
@@ -611,9 +652,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  <p className="text-white/20 text-[11px] pb-5 tracking-wide">
-                    Toque em um card ou pergunte abaixo
-                  </p>
+                  <div className="pb-4" />
                 </div>
               </div>
             )}
@@ -817,25 +856,6 @@ export default function Home() {
           </div>
         )}
       </main>
-
-      {/* ── Voice listening overlay ────────────────────────────── */}
-      {isListening && (
-        <div
-          className="absolute left-4 right-4 animate-slide-up"
-          style={{ bottom: 145, zIndex: 20 }}
-        >
-          <div
-            className="glass-dark rounded-2xl px-5 py-3 flex items-center justify-between"
-            style={{ borderColor: "rgba(239,68,68,0.3)" }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-white/80 text-sm">Ouvindo...</span>
-            </div>
-            <VoiceWave />
-          </div>
-        </div>
-      )}
 
       {/* ── Input bar ─────────────────────────────────────────── */}
       {activeTab === "chat" && (
