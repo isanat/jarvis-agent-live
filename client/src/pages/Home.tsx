@@ -302,7 +302,17 @@ export default function Home() {
         style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
       >
         <div className="flex items-center gap-2.5">
-          <FlyisaOrb state={sphereState} size={36} />
+          {/* Back button — only in chat mode */}
+          {chatMode && (
+            <button
+              onClick={() => setChatMode(false)}
+              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90 shrink-0"
+              style={{ background: "rgba(255,255,255,0.07)" }}
+            >
+              <ArrowLeft className="w-4 h-4 text-white/70" />
+            </button>
+          )}
+          <FlyisaOrb state={sphereState} size={chatMode ? 28 : 36} />
           <div className="leading-tight">
             <p className="text-white font-bold text-base tracking-wide">Flyisa</p>
             <div className="flex items-center gap-1.5">
@@ -311,7 +321,7 @@ export default function Home() {
                   <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-400" />
                   <span className="text-[11px] text-amber-400">{agentPhase || "Processando..."}</span>
                 </>
-              ) : activeTrip ? (
+              ) : activeTrip && !chatMode ? (
                 <>
                   <Plane className="w-2.5 h-2.5 text-violet-400" />
                   <span className="text-[11px] text-violet-400 truncate max-w-[120px]">
@@ -329,79 +339,95 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1">
-          {/* SOS — visible only during active trip */}
-          {activeTrip && (
-            <button
-              onClick={() => {
-                cancelSpeech();
-                setChatMode(true);
-                const dest = (activeTrip as any).destination || (activeTrip as any).route || "meu destino";
-                setTimeout(() => {
-                  sendMessage(`Preciso de ajuda em ${dest}. Pode me mostrar: farmácia 24h mais próxima, hospital ou UPA mais próximos, e número de emergência local?`).catch(() => {});
-                }, 80);
-              }}
-              className="flex items-center justify-center rounded-xl transition-all active:scale-90"
-              style={{
-                width: 38, height: 38,
-                background: "rgba(239,68,68,0.18)",
-                border: "1px solid rgba(239,68,68,0.35)",
-              }}
-              title="Saúde & Emergência"
-            >
-              <span className="text-red-400 text-[11px] font-extrabold tracking-tight">SOS</span>
-            </button>
-          )}
-
-          {/* Voice mode indicator */}
-          {voiceMode && (
-            <button
-              onClick={() => { setVoiceMode(false); cancelSpeech(); stopListening(); if (listenTimerRef.current) clearTimeout(listenTimerRef.current); }}
-              className="flex items-center gap-1.5 px-3 h-9 rounded-xl transition-all"
-              style={{ background: "rgba(124,58,237,0.3)", border: "1px solid rgba(124,58,237,0.5)" }}
-              title="Sair do modo voz"
-            >
-              {isSpeaking ? (
-                <div className="flex items-center gap-[3px]">
-                  {[0,0.1,0.2].map((d,i) => (
-                    <div key={i} className="w-[2px] h-3 rounded-full bg-violet-300 animate-voice-bar" style={{ animationDelay: `${d}s` }} />
-                  ))}
-                </div>
-              ) : isListening ? (
-                <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-              ) : (
-                <Mic className="w-3.5 h-3.5 text-violet-300" />
+          {chatMode ? (
+            /* Chat mode: only show Limpar */
+            hasMessages && (
+              <button
+                onClick={clearMessages}
+                className="text-[11px] text-white/30 px-3 py-1.5 rounded-xl transition-all active:scale-90"
+                style={{ background: "rgba(255,255,255,0.05)" }}
+              >
+                Limpar
+              </button>
+            )
+          ) : (
+            /* Home mode: SOS + voice + bell + settings */
+            <>
+              {/* SOS — visible only during active trip */}
+              {activeTrip && (
+                <button
+                  onClick={() => {
+                    cancelSpeech();
+                    setChatMode(true);
+                    const dest = (activeTrip as any).destination || (activeTrip as any).route || "meu destino";
+                    setTimeout(() => {
+                      sendMessage(`Preciso de ajuda em ${dest}. Pode me mostrar: farmácia 24h mais próxima, hospital ou UPA mais próximos, e número de emergência local?`).catch(() => {});
+                    }, 80);
+                  }}
+                  className="flex items-center justify-center rounded-xl transition-all active:scale-90"
+                  style={{
+                    width: 38, height: 38,
+                    background: "rgba(239,68,68,0.18)",
+                    border: "1px solid rgba(239,68,68,0.35)",
+                  }}
+                  title="Saúde & Emergência"
+                >
+                  <span className="text-red-400 text-[11px] font-extrabold tracking-tight">SOS</span>
+                </button>
               )}
-              <span className="text-violet-300 text-[11px] font-medium">Voz</span>
-              <X className="w-3 h-3 text-violet-400/60" />
-            </button>
+
+              {/* Voice mode indicator */}
+              {voiceMode && (
+                <button
+                  onClick={() => { setVoiceMode(false); cancelSpeech(); stopListening(); if (listenTimerRef.current) clearTimeout(listenTimerRef.current); }}
+                  className="flex items-center gap-1.5 px-3 h-9 rounded-xl transition-all"
+                  style={{ background: "rgba(124,58,237,0.3)", border: "1px solid rgba(124,58,237,0.5)" }}
+                  title="Sair do modo voz"
+                >
+                  {isSpeaking ? (
+                    <div className="flex items-center gap-[3px]">
+                      {[0,0.1,0.2].map((d,i) => (
+                        <div key={i} className="w-[2px] h-3 rounded-full bg-violet-300 animate-voice-bar" style={{ animationDelay: `${d}s` }} />
+                      ))}
+                    </div>
+                  ) : isListening ? (
+                    <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                  ) : (
+                    <Mic className="w-3.5 h-3.5 text-violet-300" />
+                  )}
+                  <span className="text-violet-300 text-[11px] font-medium">Voz</span>
+                  <X className="w-3 h-3 text-violet-400/60" />
+                </button>
+              )}
+
+              {/* Notifications bell */}
+              <button
+                onClick={showAlerts}
+                className="relative w-9 h-9 flex items-center justify-center rounded-xl"
+                style={{ background: "rgba(255,255,255,0.05)" }}
+              >
+                {unreadCount > 0 ? (
+                  <BellRing className="w-4 h-4 text-orange-400 animate-pulse" />
+                ) : (
+                  <Bell className="w-4 h-4 text-white/50" />
+                )}
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Settings */}
+              <button
+                onClick={() => setActiveTab("profile")}
+                className="w-9 h-9 flex items-center justify-center rounded-xl"
+                style={{ background: "rgba(255,255,255,0.05)" }}
+              >
+                <Settings className="w-4 h-4 text-white/50" />
+              </button>
+            </>
           )}
-
-          {/* Notifications bell */}
-          <button
-            onClick={showAlerts}
-            className="relative w-9 h-9 flex items-center justify-center rounded-xl"
-            style={{ background: "rgba(255,255,255,0.05)" }}
-          >
-            {unreadCount > 0 ? (
-              <BellRing className="w-4 h-4 text-orange-400 animate-pulse" />
-            ) : (
-              <Bell className="w-4 h-4 text-white/50" />
-            )}
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </button>
-
-          {/* Settings */}
-          <button
-            onClick={() => setActiveTab("profile")}
-            className="w-9 h-9 flex items-center justify-center rounded-xl"
-            style={{ background: "rgba(255,255,255,0.05)" }}
-          >
-            <Settings className="w-4 h-4 text-white/50" />
-          </button>
         </div>
       </header>
 
@@ -534,38 +560,43 @@ export default function Home() {
                           <Loader2 className="w-7 h-7 animate-spin"
                             style={{ color: "#00DCFF" }} />
                         ) : (
-                          <Mic className="w-7 h-7"
-                            style={{ color: "#9664FF", filter: "drop-shadow(0 0 6px #9664FF)" }} />
+                          <Mic className="w-7 h-7 animate-pulse"
+                            style={{ color: "#9664FF", filter: "drop-shadow(0 0 8px #9664FF)" }} />
                         )}
                       </button>
 
-                      {/* Status pill */}
-                      <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full"
-                        style={{
-                          background: isListening
-                            ? "rgba(239,68,68,0.15)"
-                            : isSpeaking
-                            ? "rgba(124,58,237,0.18)"
-                            : "rgba(0,255,150,0.10)",
-                          border: isListening
-                            ? "1px solid rgba(239,68,68,0.3)"
-                            : isSpeaking
-                            ? "1px solid rgba(124,58,237,0.35)"
-                            : "1px solid rgba(0,255,150,0.22)",
-                        }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full animate-pulse block"
-                          style={{ background: isListening ? "#ef4444" : isSpeaking ? "#a78bfa" : "#34d399" }} />
-                        <span className="text-[11px] font-medium tracking-wide"
-                          style={{ color: isListening ? "#f87171" : isSpeaking ? "#c4b5fd" : "#6ee7b7" }}>
-                          {isListening ? "Ouvindo..." :
-                           isSpeaking ? "Flyisa falando..." :
-                           agentState === "thinking" ? "Processando..." :
-                           agentState === "searching" ? "Buscando..." :
-                           agentState === "alert" ? "Atenção!" :
-                           "Toque para falar"}
-                        </span>
-                      </div>
+                      {/* Status pill — only visible when NOT idle */}
+                      {(isListening || isSpeaking || agentState === "thinking" || agentState === "searching" || agentState === "alert") && (
+                        <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full"
+                          style={{
+                            background: isListening
+                              ? "rgba(239,68,68,0.15)"
+                              : isSpeaking
+                              ? "rgba(124,58,237,0.18)"
+                              : agentState === "alert"
+                              ? "rgba(239,68,68,0.15)"
+                              : "rgba(0,220,255,0.12)",
+                            border: isListening
+                              ? "1px solid rgba(239,68,68,0.3)"
+                              : isSpeaking
+                              ? "1px solid rgba(124,58,237,0.35)"
+                              : agentState === "alert"
+                              ? "1px solid rgba(239,68,68,0.3)"
+                              : "1px solid rgba(0,220,255,0.25)",
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full animate-pulse block"
+                            style={{ background: isListening ? "#ef4444" : isSpeaking ? "#a78bfa" : agentState === "alert" ? "#ef4444" : "#00dcff" }} />
+                          <span className="text-[11px] font-medium tracking-wide"
+                            style={{ color: isListening ? "#f87171" : isSpeaking ? "#c4b5fd" : agentState === "alert" ? "#f87171" : "#67e8f9" }}>
+                            {isListening ? "Ouvindo..." :
+                             isSpeaking ? "Flyisa falando..." :
+                             agentState === "thinking" ? "Processando..." :
+                             agentState === "searching" ? "Buscando..." :
+                             "Atenção!"}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -662,36 +693,6 @@ export default function Home() {
             ══════════════════════════════════════════════════════ */}
             {chatMode && (
               <div className="absolute inset-0 flex flex-col">
-                {/* Cabeçalho do chat com botão voltar */}
-                <div
-                  className="shrink-0 flex items-center gap-3 px-4 py-3"
-                  style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-                >
-                  <button
-                    onClick={() => setChatMode(false)}
-                    className="w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90"
-                    style={{ background: "rgba(255,255,255,0.07)" }}
-                  >
-                    <ArrowLeft className="w-4 h-4 text-white/70" />
-                  </button>
-                  <div className="flex items-center gap-2.5 flex-1">
-                    <FlyisaOrb state={sphereState} size={28} />
-                    <div>
-                      <p className="text-white font-semibold text-sm leading-tight">Flyisa</p>
-                      {loading ? (
-                        <p className="text-amber-400 text-[10px]">{agentPhase || "Pensando..."}</p>
-                      ) : (
-                        <p className="text-emerald-400 text-[10px]">Online</p>
-                      )}
-                    </div>
-                  </div>
-                  {hasMessages && (
-                    <button onClick={clearMessages} className="text-[11px] text-white/20 px-2">
-                      Limpar
-                    </button>
-                  )}
-                </div>
-
                 {/* Mensagens */}
                 <div
                   className="flex-1 overflow-y-auto scrollbar-hidden px-4 pt-3 pb-2"

@@ -10,8 +10,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { BottomNav } from "@/components/BottomNav";
 import { getNearby, type Place } from "@/lib/api";
-import { Loader2, Star, MapPin, Clock, ChevronRight, Navigation } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Loader2, Star, MapPin, ChevronRight, Navigation } from "lucide-react";
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
@@ -28,137 +27,123 @@ const CATEGORIES = [
 
 type CategoryKey = (typeof CATEGORIES)[number]["key"];
 
-// ─── Place card ───────────────────────────────────────────────────────────────
+// ─── Place row (compact list item) ───────────────────────────────────────────
 
-function PlaceCard({ place }: { place: Place }) {
+const CATEGORY_COLORS: Record<string, string> = {
+  restaurant: "rgba(251,146,60,0.25)",
+  cafe:       "rgba(251,191,36,0.22)",
+  bar:        "rgba(167,139,250,0.22)",
+  museum:     "rgba(96,165,250,0.22)",
+  pharmacy:   "rgba(52,211,153,0.22)",
+  shopping:   "rgba(244,114,182,0.22)",
+  park:       "rgba(34,197,94,0.22)",
+  hotel:      "rgba(124,58,237,0.22)",
+};
+
+function PlaceRow({ place, categoryKey, emoji }: { place: Place; categoryKey: string; emoji: string }) {
   const openInMaps = () => {
     const q = place.name + (place.address ? `, ${place.address}` : "");
     window.open(`https://maps.google.com/?q=${encodeURIComponent(q)}`, "_blank");
   };
 
-  const stars = Math.round(place.rating || 0);
   const distLabel = place.distance
     ? place.distance < 1000
       ? `${Math.round(place.distance)} m`
       : `${(place.distance / 1000).toFixed(1)} km`
     : null;
 
+  const iconBg = CATEGORY_COLORS[categoryKey] || "rgba(124,58,237,0.22)";
+
   return (
-    <div
-      className="rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer transition-all active:scale-95"
-      style={{
-        width: 200,
-        background: "rgba(255,255,255,0.05)",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}
+    <button
       onClick={openInMaps}
+      className="w-full flex items-center gap-3 px-4 py-3 transition-all active:scale-[0.98] text-left"
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
     >
-      {/* Photo / placeholder */}
+      {/* Icon circle */}
       <div
-        className="relative w-full h-28 bg-white/5 flex items-center justify-center"
-        style={{
-          backgroundImage: place.photoUrl ? `url(${place.photoUrl})` : undefined,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
+        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
+        style={{ background: iconBg }}
       >
-        {!place.photoUrl && <MapPin className="w-8 h-8 text-white/10" />}
-        {/* Open/closed badge */}
-        {place.openNow !== undefined && (
-          <span
-            className="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full"
-            style={{
-              background: place.openNow ? "rgba(52,211,153,0.2)" : "rgba(239,68,68,0.2)",
-              color: place.openNow ? "#34d399" : "#ef4444",
-              border: `1px solid ${place.openNow ? "rgba(52,211,153,0.4)" : "rgba(239,68,68,0.4)"}`,
-            }}
-          >
-            {place.openNow ? "Open Now" : "Fechado"}
-          </span>
-        )}
+        {emoji}
       </div>
 
-      {/* Info */}
-      <div className="p-3">
-        <p className="text-white font-semibold text-sm leading-snug line-clamp-1">{place.name}</p>
-        {place.address && (
-          <p className="text-white/40 text-[11px] leading-snug mt-0.5 line-clamp-1">{place.address}</p>
-        )}
-
-        {/* Rating */}
-        {place.rating ? (
-          <div className="flex items-center gap-1 mt-1.5">
-            <div className="flex">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className={cn("w-3 h-3", i < stars ? "text-amber-400 fill-amber-400" : "text-white/20")}
-                />
-              ))}
-            </div>
-            <span className="text-amber-400 text-[11px] font-bold">{place.rating.toFixed(1)}</span>
-            {place.totalRatings && (
-              <span className="text-white/30 text-[10px]">({place.totalRatings})</span>
-            )}
-          </div>
-        ) : null}
-
-        {/* Distance + walk time */}
-        <div className="flex items-center gap-3 mt-1.5">
-          {distLabel && (
-            <span className="flex items-center gap-0.5 text-[11px] text-white/40">
-              <Navigation className="w-3 h-3" />
-              {distLabel}
+      {/* Name + address */}
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-semibold text-[13px] leading-snug truncate">{place.name}</p>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {place.rating ? (
+            <span className="flex items-center gap-0.5 text-[11px] text-amber-400 font-semibold">
+              <Star className="w-2.5 h-2.5 fill-amber-400" />
+              {place.rating.toFixed(1)}
             </span>
-          )}
-          {place.walkMinutes && (
-            <span className="flex items-center gap-0.5 text-[11px] text-white/40">
-              <Clock className="w-3 h-3" />
-              {place.walkMinutes} min
+          ) : null}
+          {distLabel && (
+            <span className="flex items-center gap-0.5 text-[11px] text-white/35">
+              <Navigation className="w-2.5 h-2.5" />
+              {distLabel}
+              {place.walkMinutes ? ` · ${place.walkMinutes} min` : ""}
             </span>
           )}
         </div>
       </div>
-    </div>
+
+      {/* Open/closed pill */}
+      {place.openNow !== undefined && (
+        <span
+          className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+          style={{
+            background: place.openNow ? "rgba(52,211,153,0.15)" : "rgba(239,68,68,0.15)",
+            color: place.openNow ? "#34d399" : "#ef4444",
+          }}
+        >
+          {place.openNow ? "Aberto" : "Fechado"}
+        </span>
+      )}
+
+      <ChevronRight className="w-3.5 h-3.5 text-white/20 shrink-0" />
+    </button>
   );
 }
 
-// ─── Section with horizontal scroll ──────────────────────────────────────────
+// ─── Section with vertical list ──────────────────────────────────────────────
 
 function PlacesSection({
   emoji,
   label,
   places,
   loading,
+  categoryKey,
 }: {
   emoji: string;
   label: string;
   places: Place[];
   loading: boolean;
+  categoryKey: string;
 }) {
   return (
-    <div>
-      <div className="flex items-center justify-between px-4 mb-3">
-        <p className="text-white font-bold text-base">
-          {emoji} {label}
-        </p>
-        <ChevronRight className="w-4 h-4 text-white/30" />
+    <div
+      className="mx-4 rounded-2xl overflow-hidden"
+      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+    >
+      {/* Section header */}
+      <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <span className="text-base">{emoji}</span>
+        <p className="text-white font-bold text-sm flex-1">{label}</p>
+        {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-white/30" />}
       </div>
 
       {loading ? (
-        <div className="px-4 flex items-center gap-2 text-white/40 text-sm">
+        <div className="flex items-center justify-center py-8 gap-2 text-white/30 text-sm">
           <Loader2 className="w-4 h-4 animate-spin" />
           Buscando...
         </div>
       ) : places.length === 0 ? (
-        <p className="px-4 text-white/30 text-sm">Nenhum lugar encontrado</p>
+        <p className="px-4 py-6 text-white/25 text-sm text-center">Nenhum lugar encontrado</p>
       ) : (
-        <div
-          className="flex gap-3 overflow-x-auto pl-4 pr-4 pb-1"
-          style={{ scrollbarWidth: "none" }}
-        >
+        <div>
           {places.map((p, i) => (
-            <PlaceCard key={p.placeId || p.name + i} place={p} />
+            <PlaceRow key={p.placeId || p.name + i} place={p} categoryKey={categoryKey} emoji={emoji} />
           ))}
         </div>
       )}
@@ -234,7 +219,7 @@ export default function ExperiencesPage() {
         className="pt-safe shrink-0 px-4 py-4"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
       >
-        <p className="text-white font-extrabold text-xl">Curadoria de Experiências</p>
+        <p className="text-white font-extrabold text-xl">Explorar</p>
         <p className="text-white/40 text-xs mt-0.5">
           {locLoading
             ? "Detectando localização..."
@@ -291,6 +276,7 @@ export default function ExperiencesPage() {
                 key={key}
                 emoji={emoji}
                 label={label}
+                categoryKey={key}
                 places={placesByCategory[key as CategoryKey] || []}
                 loading={loadingCategory.has(key as CategoryKey)}
               />
